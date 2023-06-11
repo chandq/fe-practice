@@ -2,7 +2,7 @@
  * @Description: 大数据去重的性能测试
  * @Date: 2023-06-10 19:21:19
  * @LastEditors: chendq
- * @LastEditTime: 2023-06-11 19:31:04
+ * @LastEditTime: 2023-06-11 21:29:37
  * @Author      : chendq
  */
 
@@ -13,14 +13,12 @@
  */
 function genDataWithSpecLen(dataLen) {
   var data = [];
-  // 代码就写一个1万的例子，避免篇幅过长。
   [2, 5, 8].map(item => {
     data.push(
       Array.from(new Array(dataLen), function (item2, i) {
         return i % 10 < item || Math.random();
       })
     );
-    // 可在此处添加十万、百万.. 数据
   });
   return data;
 }
@@ -163,7 +161,7 @@ function distinctBySet(arr) {
   return [...new Set(arr)];
 }
 /**
- * 9. 使用Map的Key唯一值
+ * 9. 使用 Map 的唯一 Key + Map.values()
  * @param {*} arr
  * @returns
  */
@@ -177,7 +175,13 @@ function distinctByMapKey(arr) {
   }
   return Array.from(newMap.values());
 }
-function distinctTest(distinctFunc, repeatData, distinctTypeDesc) {
+/**
+ * 使用console.time统计数据去重的消耗时间
+ * @param {*} distinctFunc 去重函数
+ * @param {*} repeatData 包含20%、50%、80%重复率数据的二维数组
+ * @return {*}
+ */
+function distinctTestByConsoleTime(distinctFunc, repeatData) {
   repeatData.forEach(item => {
     console.group();
     var length = item.length;
@@ -193,25 +197,36 @@ function distinctTest(distinctFunc, repeatData, distinctTypeDesc) {
     console.groupEnd();
   });
 }
-function distinctBySpec(distinctBySpecFunc, distinctTypeDesc) {
+/**
+ * 按指定去重方法测试去重并打印测试结果（覆盖20%、50%、80%重复率）
+ * @param {*} distinctBySpecFunc 去重函数
+ * @param {*} distinctTypeDesc  去重方法说明
+ * @param {*} maxDataLen 去重的最大数据量，默认：10w -> 5, 可选: 100w -> 6 | 1000w -> 7
+ * @return {*}
+ */
+function distinctBySpec(distinctBySpecFunc, distinctTypeDesc, maxDataLen = 5) {
   console.group(distinctTypeDesc);
-  distinctTest(distinctBySpecFunc, genDataWithSpecLen(10 ** 4), distinctTypeDesc);
-  distinctTest(distinctBySpecFunc, genDataWithSpecLen(10 ** 5), distinctTypeDesc);
-  distinctTest(distinctBySpecFunc, genDataWithSpecLen(10 ** 6), distinctTypeDesc);
-  distinctTest(distinctBySpecFunc, genDataWithSpecLen(10 ** 7), distinctTypeDesc);
+  distinctTestByConsoleTime(distinctBySpecFunc, genDataWithSpecLen(10 ** 4));
+  distinctTestByConsoleTime(distinctBySpecFunc, genDataWithSpecLen(10 ** 5));
+  if (maxDataLen >= 6) {
+    distinctTestByConsoleTime(distinctBySpecFunc, genDataWithSpecLen(10 ** 6));
+  }
+  if (maxDataLen >= 7) {
+    distinctTestByConsoleTime(distinctBySpecFunc, genDataWithSpecLen(10 ** 7));
+  }
   console.groupEnd(distinctTypeDesc);
 }
 function distinctMain() {
-  // distinctBySpec(distinctBySplice, '1. 双重for循环 + splice / flag: 使用splice删除');
-  // distinctBySpec(distinctByFlag, '1. 双重for循环 + splice / flag: 使用flag标记');
-  // distinctBySpec(distinctByIndexOf, '2. for 循环加 indexOf / includes');
+  distinctBySpec(distinctBySplice, '1. 双重for循环 + splice / flag: 使用splice删除');
+  distinctBySpec(distinctByFlag, '1. 双重for循环 + splice / flag: 使用flag标记');
+  distinctBySpec(distinctByIndexOf, '2. for 循环加 indexOf / includes');
   distinctBySpec(distinctByFilter, '3. filter 加 indexOf');
-  // distinctBySpec(distinctBySort, '4. 使用sort排序后去重');
-  // distinctBySpec(distinctBySortReduce, '5. sort 加 reduce');
-  // distinctBySpec(distinctByHasOwnProperty, '6. 利用对象key唯一(hasOwnProperty)');
-  // distinctBySpec(distinctByMap, '7. 使用Map数据结构');
-  // distinctBySpec(distinctBySet, '8. 使用Set (仅限相同类型的简单数据)');
-  // distinctBySpec(distinctByMapKey, '9. 使用Map的Key唯一值');
+  distinctBySpec(distinctBySort, '4. 使用sort排序后去重', 7);
+  distinctBySpec(distinctBySortReduce, '5. sort 加 reduce', 7);
+  distinctBySpec(distinctByHasOwnProperty, '6. 利用对象key唯一(hasOwnProperty)', 7);
+  distinctBySpec(distinctByMap, '7. 使用Map数据结构', 7);
+  distinctBySpec(distinctBySet, '8. 使用Set (仅限相同类型的简单数据)', 7);
+  distinctBySpec(distinctByMapKey, '9. 使用Map的Key唯一值', 7);
 }
 /**
  * 获取按指定去重方法测试去重后的测试结果（仅包含指定重复率的测试结果）
@@ -288,18 +303,18 @@ const DistinctWithFormatReturn = [
  * 获取按指定去重方法测试去重后的测试结果（覆盖20%、50%、80%重复率）
  * @param {*} distinctBySpecFunc 去重函数
  * @param {*} distinctTypeDesc  去重方法说明
- * @param {*} dataLen 去重的最大数据量，默认：10w -> 5, 可选: 100w -> 6 | 1000w -> 7
+ * @param {*} maxDataLen 去重的最大数据量，默认：10w -> 5, 可选: 100w -> 6 | 1000w -> 7
  * @return {DistinctWithFormatReturn}
  */
-function distinctBySpecWithFormatReturn(distinctBySpecFunc, distinctTypeDesc, dataLen = 5) {
+function distinctBySpecWithFormatReturn(distinctBySpecFunc, distinctTypeDesc, maxDataLen = 5) {
   const resArr = [
     distinctTestWithFormat(distinctBySpecFunc, genDataWithSpecLen(10 ** 4), distinctTypeDesc),
     distinctTestWithFormat(distinctBySpecFunc, genDataWithSpecLen(10 ** 5), distinctTypeDesc)
   ];
-  if (dataLen >= 6) {
+  if (maxDataLen >= 6) {
     resArr.push(distinctTestWithFormat(distinctBySpecFunc, genDataWithSpecLen(10 ** 6), distinctTypeDesc));
   }
-  if (dataLen >= 7) {
+  if (maxDataLen >= 7) {
     resArr.push(distinctTestWithFormat(distinctBySpecFunc, genDataWithSpecLen(10 ** 7), distinctTypeDesc));
   }
   const allPerfLabel = [
@@ -437,7 +452,13 @@ function LoopTestMain() {
   });
 }
 // 去重效率测试
+/**
+ * 通过console.time计算耗时，验证单个测试不同去重函数的效率
+ */
 distinctMain();
+/**
+ * 使用endTime - startTime计算耗时，使用console.table全面对比不同去重函数的效率
+ */
 // distinctMainWithFormat();
 // 循环效率测试
 // LoopTestMain();
