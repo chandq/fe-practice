@@ -2,7 +2,7 @@
  * @Description: 大数据去重的性能测试
  * @Date: 2023-06-10 19:21:19
  * @LastEditors: chendq
- * @LastEditTime: 2023-06-11 21:29:37
+ * @LastEditTime: 2023-06-11 21:58:54
  * @Author      : chendq
  */
 
@@ -455,10 +455,10 @@ function LoopTestMain() {
 /**
  * 通过console.time计算耗时，验证单个测试不同去重函数的效率
  */
-distinctMain();
+// distinctMain();
 /**
  * 使用endTime - startTime计算耗时，使用console.table全面对比不同去重函数的效率
  */
 // distinctMainWithFormat();
 // 循环效率测试
-// LoopTestMain();
+LoopTestMain();
