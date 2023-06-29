@@ -84,6 +84,20 @@ npx babel src --out-dir lib --plugins=@babel/plugin-proposal-optional-chaining -
 }
 ```
 
+`useBuiltIns`设置 usage，会按需加载 使用到的 polyfill，如果还不生效，则在入口文件顶部导入 polyfill, 推荐按需导入，比如导入`Object.fromEntries`和`globalThis`的 polyfill：
+
+```bash
+import 'core-js/features/object/from-entries';
+import 'core-js/features/global-this';
+```
+
+> Babel 7.4.0 之后，[@babel/polyfill](https://babeljs.io/docs/babel-polyfill) 包被弃用，取而代之的是 `core-js/stable`
+
+## [corejs](https://babeljs.io/docs/babel-plugin-transform-runtime#corejs) v2 和 v3 的区别
+
+- corejs: 2 only supports global variables (e.g. Promise) and static properties (e.g. Array.from),
+- corejs: 3 also supports instance properties (e.g. [].includes).
+
 ## 配置兼容的浏览器版本
 
 [browserslist GitHub](https://github.com/browserslist/browserslist)
