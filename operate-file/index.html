@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>压缩图片</title>
+    <style>
+      .image-container {
+        border: solid 2px gray;
+        color: blue;
+        font-size: 18px;
+        margin-top: 15px;
+      }
+    </style>
+    <script type="module" charset="UTF-8">
+      import '../utils/we-decode.js';
+      import { compressImg } from '../utils/file.js';
+      setTimeout(() => {
+        const originImage = document.querySelector('#originImage');
+        const targetImage = document.querySelector('#targetImage');
+        const quality = document.querySelector('#quality');
+        const upload = document.querySelector('#upload');
+        let compressRes = null;
+        async function handleUpload(e) {
+          console.log('+quality.value', +quality.value, typeof +quality.value);
+          compressRes = await compressImg(e.target.files[0], +quality.value);
+          document.querySelector('#upload').value = '';
+          if (!compressRes.beforeSrc) {
+            alert('文件体积小于200KB，不做压缩处理');
+            return;
+          }
+          const { beforeSrc, afterSrc } = compressRes;
+
+          originImage.src = beforeSrc;
+          targetImage.src = afterSrc;
+
+          console.log('handleUpload', compressRes);
+        }
+        function download() {
+          const a = document.createElement('a');
+          a.download = compressRes.origin.name;
+          a.href = window.URL.createObjectURL(compressRes.file);
+          a.click();
+        }
+        upload.addEventListener('change', handleUpload);
+        document.querySelector('#download').addEventListener('click', download);
+      });
+    </script>
+  </head>
+  <body>
+    压缩质量
+    <input id="quality" type="text" value="0.9" />
+    <input type="file" id="upload" name="上传" accept="image/*" />
+    <button id="download">下载</button>
+    <div>
+      <div class="image-container">
+        原图：
+        <img id="originImage" />
+      </div>
+      <div class="image-container">
+        压缩后：
+        <img id="targetImage" />
+      </div>
+    </div>
+  </body>
+</html>
