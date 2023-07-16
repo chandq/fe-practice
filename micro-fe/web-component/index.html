@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Document</title>
+    <style>
+      .info {
+        top: 55px;
+        color: green;
+      }
+    </style>
+    <!-- <script src="./custom-element.js" defer></script> -->
+  </head>
+  <body>
+    <span class="info">Hello world</span>
+    <popup-info
+      img="img/alt.png"
+      data-text="Your card validation code (CVC)
+  is an extra security feature — it is the last 3 or 4 numbers on the
+  back of your card."
+    >
+      This is a custom popup element
+    </popup-info>
+    <script src="./custom-element.js"></script>
+    <script>
+      const popupInfo = document.querySelector('popup-info');
+      const shadowRoot = popupInfo.shadowRoot;
+      console.log('document:', popupInfo.getRootNode(), shadowRoot.querySelector('.wrapper').getRootNode());
+      console.log('wrapper:', shadowRoot.querySelector('.wrapper'), window.a);
+    </script>
+  </body>
+</html>
