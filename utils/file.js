@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2023-07-07 12:32:55
  * @LastEditors: chendq
- * @LastEditTime: 2023-07-07 13:55:43
+ * @LastEditTime: 2024-04-29 14:08:53
  * @Author      : chendq
  */
 // import { weAtob } from './we-decode';
@@ -48,52 +48,58 @@ export function download(blobUrl, fileName) {
   a.href = blobUrl;
   a.click();
 }
-
 /**
- * 压缩图片方法 (size小于200KB，不压缩)
- * @param {file} file 文件
- * @param {Number} quality 图片质量(取值0-1之间默认0.92)
+ * 判断是否支持canvas
+ * @returns {boolean}
  */
-export function compressImg(file, quality) {
-  var qualitys = 0.52;
-  if (file.size) {
-    console.log(parseInt((file.size / 1024).toFixed(2)));
-    if (parseInt((file.size / 1024).toFixed(2)) < 1024) {
-      qualitys = 0.85;
-    }
-    if (5 * 1024 < parseInt((file.size / 1024).toFixed(2))) {
-      qualitys = 0.92;
+function supportCanvas() {
+  return !!document.createElement('canvas').getContext;
+}
+/**
+ * Web端：等比例压缩图片批量处理 (size小于200KB，不压缩)
+ * @param {File | FileList} file 文件
+ * @param {ICompressOptions} options
+ * @returns {Promise<object> | undefined}
+ */
+function compressImg(file, options) {
+  console.assert(file instanceof File || file instanceof FileList, `${file} 必须是File或FileList类型`);
+  console.assert(supportCanvas(), `当前环境不支持 Canvas`);
+  let targetQuality = 0.52;
+  if (file instanceof File) {
+    const sizeKB = +parseInt((file.size / 1024).toFixed(2));
+    if (sizeKB <= 1024) {
+      targetQuality = 0.85;
+    } else if (5 * 1024 < sizeKB) {
+      targetQuality = 0.92;
     }
   }
-  if (quality) {
-    qualitys = quality;
+  if (options.quality) {
+    targetQuality = options.quality;
   }
-  if (file[0]) {
-    return Promise.all(Array.from(file).map(e => compressImg(e, qualitys))); // 如果是 file 数组返回 Promise 数组
-  } else {
+  if (file instanceof FileList) {
+    return Promise.all(Array.from(file).map(el => compressImg(el, { mime: options.mime, quality: targetQuality }))); // 如果是 file 数组返回 Promise 数组
+  } else if (file instanceof File) {
     return new Promise(resolve => {
-      console.log(file);
-      if ((file.size / 1024).toFixed(2) < 200) {
+      const sizeKB = +parseInt((file.size / 1024).toFixed(2));
+      if (+(file.size / 1024).toFixed(2) < 200) {
         resolve({
           file: file
         });
       } else {
         const reader = new FileReader(); // 创建 FileReader
+        // @ts-ignore
         reader.onload = ({ target: { result: src } }) => {
           const image = new Image(); // 创建 img 元素
-          image.onload = async () => {
+          image.onload = () => {
             const canvas = document.createElement('canvas'); // 创建 canvas 元素
             const context = canvas.getContext('2d');
-            var targetWidth = image.width;
-            var targetHeight = image.height;
-            var originWidth = image.width;
-            var originHeight = image.height;
-            if (
-              1 * 1024 <= parseInt((file.size / 1024).toFixed(2)) &&
-              parseInt((file.size / 1024).toFixed(2)) <= 10 * 1024
-            ) {
-              var maxWidth = 1600;
-              var maxHeight = 1600;
+            let targetWidth = image.width;
+            let targetHeight = image.height;
+            const originWidth = image.width;
+            const originHeight = image.height;
+            if (1 * 1024 <= sizeKB && sizeKB < 10 * 1024) {
+              const maxWidth = 1600,
+                maxHeight = 1600;
               targetWidth = originWidth;
               targetHeight = originHeight;
               // 图片尺寸超过的限制
@@ -107,13 +113,9 @@ export function compressImg(file, quality) {
                   targetWidth = Math.round(maxHeight * (originWidth / originHeight));
                 }
               }
-            }
-            if (
-              10 * 1024 <= parseInt((file.size / 1024).toFixed(2)) &&
-              parseInt((file.size / 1024).toFixed(2)) <= 20 * 1024
-            ) {
-              maxWidth = 1400;
-              maxHeight = 1400;
+            } else if (10 * 1024 <= sizeKB && sizeKB <= 20 * 1024) {
+              const maxWidth = 1400,
+                maxHeight = 1400;
               targetWidth = originWidth;
               targetHeight = originHeight;
               // 图片尺寸超过的限制
@@ -132,7 +134,7 @@ export function compressImg(file, quality) {
             canvas.height = targetHeight;
             context.clearRect(0, 0, targetWidth, targetHeight);
             context.drawImage(image, 0, 0, targetWidth, targetHeight); // 绘制 canvas
-            const canvasURL = canvas.toDataURL('image/jpeg', qualitys);
+            const canvasURL = canvas.toDataURL(options.mime, targetQuality);
             const buffer = globalThis.weAtob(canvasURL.split(',')[1]);
             let length = buffer.length;
             const bufferArray = new Uint8Array(new ArrayBuffer(length));
@@ -140,17 +142,7 @@ export function compressImg(file, quality) {
               bufferArray[length] = buffer.charCodeAt(length);
             }
             const miniFile = new File([bufferArray], file.name, {
-              type: 'image/jpeg'
-            });
-            console.log({
-              file: miniFile,
-              bufferArray,
-              origin: file,
-              beforeSrc: src,
-              afterSrc: canvasURL,
-              beforeKB: Number((file.size / 1024).toFixed(2)),
-              afterKB: Number((miniFile.size / 1024).toFixed(2)),
-              qualitys: qualitys
+              type: options.mime
             });
             resolve({
               file: miniFile,
@@ -169,3 +161,5 @@ export function compressImg(file, quality) {
     });
   }
 }
+
+export { compressImg, supportCanvas };

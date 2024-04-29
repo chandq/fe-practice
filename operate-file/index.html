@@ -16,27 +16,43 @@
       import '../utils/we-decode.js';
       import { compressImg } from '../utils/file.js';
       setTimeout(() => {
-        const originImage = document.querySelector('#originImage');
-        const targetImage = document.querySelector('#targetImage');
+        const originImages = document.querySelector('#origin-imgs');
+        const targetImages = document.querySelector('#target-imgs');
         const quality = document.querySelector('#quality');
         const upload = document.querySelector('#upload');
         let compressRes = null;
-        async function handleUpload(e) {
-          console.log('+quality.value', +quality.value, typeof +quality.value);
-          compressRes = await compressImg(e.target.files[0], +quality.value);
-          document.querySelector('#upload').value = '';
-          if (!compressRes.beforeSrc) {
-            alert('文件体积小于200KB，不做压缩处理');
-            return;
-          }
+        function previewImg(compressRes) {
+          const originImg = document.createElement('img');
+          const targetImg = document.createElement('img');
           const { beforeSrc, afterSrc } = compressRes;
 
-          originImage.src = beforeSrc;
-          targetImage.src = afterSrc;
+          originImg.src = beforeSrc;
+          targetImg.src = afterSrc;
+          originImages.appendChild(originImg);
+          targetImages.appendChild(targetImg);
+        }
+        async function handleUpload(e) {
+          console.log('+quality.value', +quality.value, typeof +quality.value, e.target.files);
+          const miniRes = await compressImg(e.target.files, { quality: +quality.value, mime: 'image/jpeg' });
 
-          console.log('handleUpload', compressRes);
+          document.querySelector('#upload').value = '';
+          // if (!compressRes.beforeSrc) {
+          //   alert('文件体积小于200KB，不做压缩处理');
+          //   return;
+          // }
+
+          if (Array.isArray(miniRes)) {
+            miniRes.forEach(element => {
+              previewImg(element);
+            });
+          } else {
+            previewImg(miniRes);
+          }
+
+          console.log('handleUpload', miniRes);
         }
         function download() {
+          compressRes = Array.isArray(miniRes) ? miniRes[0] : miniRes;
           const a = document.createElement('a');
           a.download = compressRes.origin.name;
           a.href = window.URL.createObjectURL(compressRes.file);
@@ -50,16 +66,16 @@
   <body>
     压缩质量
     <input id="quality" type="text" value="0.9" />
-    <input type="file" id="upload" name="上传" accept="image/*" />
+    <input type="file" id="upload" name="上传" accept="image/*" multiple />
     <button id="download">下载</button>
     <div>
-      <div class="image-container">
+      <div class="image-container" id="origin-imgs">
         原图：
-        <img id="originImage" />
+        <!-- <img id="originImage" /> -->
       </div>
-      <div class="image-container">
+      <div class="image-container" id="target-imgs">
         压缩后：
-        <img id="targetImage" />
+        <!-- <img id="targetImage" /> -->
       </div>
     </div>
   </body>
