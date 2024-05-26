@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      .content {
+        color: green;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Hello world</h1>
+    <div class="content" id="content"></div>
+    <div class="content">qqqq</div>
+
+    <button id="click">点击</button>
+    <script>
+      document.querySelector('#click').addEventListener('click', click);
+      function click() {
+        console.log('sss', document.querySelector('#content'));
+
+        // document.querySelector('#content').innerText = '欢迎来到 前端 领域';
+        document.querySelector('#content').innerHTML = '<span>prefix</span> <span1></span1> 欢迎来到 前端 领域';
+      }
+    </script>
+  </body>
+</html>

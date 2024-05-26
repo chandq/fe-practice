@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.7.16"></script>
+  </head>
+  <body>
+    <div id="app">
+      <!-- 第三步：使用组件 -->
+      <school>
+        <div>ggg</div>
+        <template #age1>2222</template>
+      </school>
+    </div>
+
+    <script>
+      Vue.config.productionTip = false;
+
+      const options = {
+        template: `
+              <div>
+                  <h2>学校名称：{{schoolName}}</h2>
+                  <h2>学校地址：{{address}}</h2>
+                 <slot></slot>
+                 <slot name="age"></slot>
+                 <slot name="age"></slot>
+                 <slot name="age1"></slot>
+                  <button  id="school">点我提示学校名</button>
+              </div>
+          `,
+        data() {
+          return {
+            schoolName: '哔哩哔哩',
+            address: '中国'
+          };
+        },
+        methods: {
+          showName() {
+            alert(this.schoolName);
+          }
+        },
+        mounted() {
+          document.querySelector('#school').addEventListener('click', this.showName);
+        }
+      };
+      // 第一步：创建 school 组件
+      // const school = Vue.extend(options);
+      const school = options;
+
+      new Vue({
+        el: '#app',
+        // 第二步：注册组件(局部注册)
+        components: {
+          school
+        }
+      });
+    </script>
+  </body>
+</html>

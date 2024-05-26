@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secure: XSS攻击</title>
+    <script>
+      function injectJS() {
+        setTimeout(() => {
+          document.querySelector('#main').innerHTML = '<div title="comment">5 &lt; 7</div>';
+        });
+      }
+      function excuteAlert() {
+        // 
+        console.log('e', document.querySelector('#input'));
+        document.querySelector('#alert').innerHTML = filterEspecialCharactor(document.querySelector('#input').value);
+      }
+      function filterEspecialCharactor(value) {
+        value = value.replace(/<[^>]*>|[\r\n\t]/gi, '');
+        value = value.replace(/[&<>"]/gi, function (match) {
+          switch (match) {
+            case '&':
+              return '&amp;';
+            case '<':
+              return '&lt;';
+            case '>':
+              return '&gt;';
+            case '"':
+              return '&quot;';
+          }
+        });
+        return value;
+      }
+    </script>
+  </head>
+  <body>
+    <button onclick="injectJS()">Inject unsecure js</button>
+    <textarea rows="5" id="input" value="" onchange="excuteAlert()"></textarea>
+    <div id="main"></div>
+    <div id="alert">
+      <script>
+        alert('xss');
+        console.log('yys');
+      </script>
+    </div>
+    <a href="javascript:alert('XSS')">XSS</a>
+  </body>
+</html>
