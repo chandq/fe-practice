@@ -29,6 +29,8 @@ async function handleRequest() {
       <nav>
         <RouterLink to="/">Home</RouterLink>
         <RouterLink to="/about">About</RouterLink>
+        <RouterLink to="/xmind">XMind</RouterLink>
+        <RouterLink to="/xmind2">XMind2</RouterLink>
         <a href="//baidu.com" target="_blank" style="color: red">跳转百度</a>
         <a javascript="void 0" style="color: red" @click="handleJump">js跳转</a>
         <a javascript="void 0" style="color: red" @click="handleRequest">发送ajax请求</a>
