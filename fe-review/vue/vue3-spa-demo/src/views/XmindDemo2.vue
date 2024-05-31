@@ -1,4 +1,6 @@
 <template>
+  <button @click="loadChildNodes">模拟异步加载子节点</button>
+
   <div id="map2"></div>
 
   <Contextmenu v-if="mindMap" :mindMap="mindMap"></Contextmenu>
@@ -76,6 +78,16 @@ const layout = exampleData.layout
 const theme = exampleData.theme
 
 const mindMap = ref()
+const currentSelectNode = ref()
+function loadChildNodes() {
+  // console.log('currentSelectNode', currentSelectNode)
+  currentSelectNode.value.children = [
+    ...new Array(10)
+      .fill('')
+      .map((el) => ({ data: { text: `节点 ${uniqueString()}`, tag: [uniqueString()] } }))
+  ]
+  mindMap.value.reRender()
+}
 onMounted(() => {
   init()
   eventBus.on('startTextEdit', handleStartTextEdit)
@@ -86,11 +98,15 @@ function init() {
   let count = 0
   forEachDeep(mindData, (item, i, cur, tree, parent, level) => {
     ++count
-    console.log('current::', level)
-    // 测试正常的最高记录：2059个node节点（1200）
+    // console.log('current::', level)
+    // 横向不限层级测试正常的最高记录：2059个node节点（1200）,深拷贝报错
+    // 横向限制最高5级测试正常的正常记录：2000个node节点， 50MB，15s，界面响应流程
+    // 横向限制最高5级测试正常的正常记录：5000个node节点， 100-150MB，15s，CPU长时间占用100%以上，界面响应明显卡顿
     if (count <= 1000) {
       if (level <= 5 && !item.children) {
-        item.children = [{ data: { text: `节点 ${uniqueString()}`, tag: [uniqueString()] } }]
+        item.children = [
+          { data: { text: `节点 ${uniqueString()}`, tag: [uniqueString(), uniqueString()] } }
+        ]
       }
       if (level <= 5 && parent) {
         !parent.children && (parent.children = [{ data: { text: `节点 ${uniqueString()}` } }])
@@ -104,7 +120,7 @@ function init() {
       }
     }
   })
-  console.log('mindData', count, mindData)
+  // console.log('mindData', count, mindData)
   let j = 0
   // forEachDeep(mindData, (item, i, cur, tree, parent, level) => {
   //   console.log('iter::', j++, level)
@@ -153,19 +169,22 @@ function init() {
     console.log('register:event', event)
     mindMap.value.on(event, (...args) => {
       // const nodeData = args[0].nodeData
-      console.log('event:on', event, args)
+      // console.log('event:on', event, args)
       if (args?.length === 2 && isObject(args[0]) && args[1] instanceof PointerEvent) {
-        console.log('event:on', event, args[0], args[0].getData(), args[0].getData('text'))
+        // console.log('event:on', event, args[0], args[0].getData(), args[0].getData('text'))
+      }
+      if (event === 'node_click') {
+        currentSelectNode.value = args[0].nodeData
       }
       eventBus.emit(event, ...args)
     })
   })
   mindMap.value.addPlugin(RichText)
-  console.log('mindMap', mindMap.value, MindMap)
+  // console.log('mindMap', mindMap.value, MindMap)
 }
 
 function handleStartTextEdit() {
-  console.log('handleStartTextEdit', handleStartTextEdit)
+  // console.log('handleStartTextEdit', handleStartTextEdit)
   mindMap.value.renderer.startTextEdit()
 }
 
