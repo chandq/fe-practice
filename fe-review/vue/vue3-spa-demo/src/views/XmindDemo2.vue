@@ -102,7 +102,7 @@ function init() {
     // 横向不限层级测试正常的最高记录：2059个node节点（1200）,深拷贝报错
     // 横向限制最高5级测试正常的正常记录：2000个node节点， 50MB，15s，界面响应流程
     // 横向限制最高5级测试正常的正常记录：5000个node节点， 100-150MB，15s，CPU长时间占用100%以上，界面响应明显卡顿
-    if (count <= 1000) {
+    if (count <= 10) {
       if (level <= 5 && !item.children) {
         item.children = [
           { data: { text: `节点 ${uniqueString()}`, tag: [uniqueString(), uniqueString()] } }
@@ -121,7 +121,7 @@ function init() {
     }
   })
   // console.log('mindData', count, mindData)
-  let j = 0
+  // let j = 0
   // forEachDeep(mindData, (item, i, cur, tree, parent, level) => {
   //   console.log('iter::', j++, level)
   // })
