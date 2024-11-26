@@ -1,0 +1,14 @@
+{
+  "name": "encrypt",
+  "version": "1.0.0",
+  "description": "加解密demo",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "chendq",
+  "license": "ISC",
+  "dependencies": {
+    "gm-crypto": "^0.1.12"
+  }
+}
