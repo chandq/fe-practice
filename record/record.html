@@ -1,12 +1,27 @@
 <!DOCTYPE html>
+<!-- record.html -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <title>Record Screen</title>
   </head>
   <body>
-    <button>共享屏幕</button>
+    <blockquote>
+      基于网络浏览器的navigator API实现屏幕录制，可指定
+      <strong>浏览器标签页、桌面软件窗口、电脑屏幕</strong>
+      三种模式来进行录制，录制完成后会生成一个webm文件，
+      <strong>仅限网络浏览器打开播放</strong>
+    </blockquote>
+    navigator.mediaDevices 仅在以下三种情况下可用：
+    <ul>
+      <li>使用 localhost 访问时</li>
+
+      <li>使用 https:// 协议时</li>
+
+      <li>使用 file:/// 协议访问本地文件时</li>
+    </ul>
+    <button>录制屏幕</button>
     <script>
       const button = document.querySelector('button');
       button.addEventListener('click', async () => {
@@ -21,7 +36,6 @@
         const chunks = [];
         mediaRecorder.addEventListener('dataavailable', function (e) {
           chunks.push(e.data);
-          
         });
 
         mediaRecorder.addEventListener('stop', () => {
