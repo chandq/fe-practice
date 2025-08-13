@@ -1,0 +1,84 @@
+/* src/plugins/iframe/card.css */
+.iframe-container {
+  position: relative;
+  border: 1px solid #e8e8e8;
+  margin: 16px 0;
+  /* min-height: 100px; */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #fafafa;
+}
+.iframe-container .iframe-toggle-fullscreen {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  line-height: 1;
+}
+.iframe-toggle-fullscreen:hover {
+  background-color: #f0f2f5;
+}
+.iframe-container .svg-wrapper {
+  width: 1em;
+  height: 1em;
+}
+.select-content-wrapper {
+  visibility: hidden;
+  height: 0;
+  width: 0;
+}
+
+.iframe-container[data-activated='true'] {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.iframe-container iframe {
+  width: 100%;
+  height: 400px; /* 默认高度 */
+  display: block;
+}
+
+/* 遮罩层：关键！用于捕获点击事件，激活卡片，而不是让焦点陷入iframe */
+.iframe-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  cursor: pointer;
+}
+
+.iframe-input-area {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.iframe-placeholder {
+  color: #888;
+  font-size: 14px;
+}
+
+.iframe-input-area input {
+  width: 300px;
+  padding: 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+}
+
+.iframe-input-area button {
+  padding: 8px 16px;
+  border: 1px solid #1890ff;
+  background-color: #1890ff;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}

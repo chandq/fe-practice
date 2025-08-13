@@ -25,7 +25,8 @@
         function previewImg(compressRes) {
           const originImg = document.createElement('img');
           const targetImg = document.createElement('img');
-          const { beforeSrc, afterSrc } = compressRes;
+          const { beforeSrc, afterSrc, beforeKB, afterKB } = compressRes;
+          console.log('beforeKB, afterKB', beforeKB, afterKB);
 
           originImg.src = beforeSrc;
           targetImg.src = afterSrc;
@@ -33,11 +34,22 @@
           targetImages.appendChild(targetImg);
         }
         async function handleUpload(e) {
-          console.log('+quality.value', +quality.value, typeof +quality.value, e.target.files);
           miniRes = await compressImg(e.target.files, {
-            quality: +quality.value,
-            mime: e.target.files[0].type ?? 'image/jpeg'
+            maxSize: 1920,
+            // quality: +quality.value,
+            // mime: e.target.files[0].type ?? 'image/jpeg'
+            // mime: 'image/webp'
+            // mime: 'image/png'
+            mime: 'image/jpeg'
           });
+          console.log(
+            '+quality.value',
+            e.target.files[0].type ?? 'image/jpeg',
+            +quality.value,
+            typeof +quality.value,
+            e.target.files,
+            miniRes
+          );
 
           document.querySelector('#upload').value = '';
           // if (!compressRes.beforeSrc) {
