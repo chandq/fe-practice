@@ -106,7 +106,8 @@ export default class IframeCard extends Card<IframeValue> {
     if (src) {
       // 如果有 src，则渲染 iframe
       const iframe = $(
-        `<iframe src="${src}" id="${id}" frameborder="0" allowfullscreen="true" style="height: ${height ?? 400}px"></iframe>`
+        `<div>asdfhaha</div>
+        <iframe src="${src}" id="${id}" frameborder="0" allowfullscreen="true" style="height: ${height ?? 400}px"></iframe>`
       )
       container.append(iframe)
 

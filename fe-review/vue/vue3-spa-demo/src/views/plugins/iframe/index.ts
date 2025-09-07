@@ -141,9 +141,10 @@ export default class IframePlugin extends Plugin<IframeOptions> {
         console.log('value', value);
         if (value?.src) {
           // Generate proper iframe HTML representation
-          const iframeHtml = `<iframe src="${value.src}"  frameborder="0" allowfullscreen="true" style="width: 100%; height: 400px;">
-          </iframe>`;
+          const iframeHtml = `<span>saa
+          <span>`;
 
+          // const containerHtml = `<div  data-type="${IframeComponent.cardName}" class="iframe-container"  data-value="${encodeCardValue(value)}">${iframeHtml}</div>`;
           const containerHtml = `<div  data-type="${IframeComponent.cardName}" class="iframe-container"  data-value="${encodeCardValue(value)}">${iframeHtml}</div>`;
 
           let newNode = $(containerHtml);
