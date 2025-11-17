@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>高性能虚拟化甘特图 (Canvas+SVG)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background-color: #f4f7f6;
+        color: #333;
+        /* 防止页面滚动条干扰组件滚动条 */
+        overflow: hidden;
+      }
+
+      .gantt-app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        padding: 1rem;
+      }
+
+      .gantt-controls {
+        flex-shrink: 0;
+        margin-bottom: 1rem;
+      }
+
+      .gantt-wrapper {
+        display: flex;
+        width: 100%;
+        flex-grow: 1; /* 占据剩余高度 */
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+        background: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+
+      /* 侧边栏 */
+      .gantt-sidebar {
+        width: 200px;
+        flex-shrink: 0;
+        border-right: 1px solid #e0e0e0;
+        background: #fafafa;
+        /* 关键：阻止侧边栏自己滚动 */
+        overflow: hidden;
+        position: relative;
+      }
+
+      .gantt-sidebar-header {
+        height: 60px; /* 匹配甘特图头部高度 */
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        font-weight: 600;
+        border-bottom: 1px solid #e0e0e0;
+        box-sizing: border-box;
+        background: #fafafa;
+        position: sticky; /* 钉在顶部 */
+        top: 0;
+        z-index: 20;
+      }
+
+      /* 侧边栏虚拟滚动容器 */
+      .gantt-sidebar-content {
+        /* 绝对定位，用于 transform 虚拟滚动 */
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        will-change: transform;
+      }
+
+      .gantt-sidebar-row {
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        background: white;
+        box-sizing: border-box;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      /* 甘特图主区域 */
+      .gantt-chart-container {
+        flex-grow: 1;
+        overflow: auto; /* 关键：这是唯一的滚动条 */
+        position: relative;
+        background: #ffffff;
+      }
+
+      /* 滚动条占位符 (用于撑开容器) */
+      .gantt-scroll-dummy {
+        position: absolute;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        z-index: -1;
+        pointer-events: none;
+      }
+
+      /* 头部 Canvas (水平滚动) */
+      .gantt-header-canvas {
+        position: sticky;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        background: #f9f9f9;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      /* 主内容 Canvas (垂直+水平滚动) */
+      .gantt-main-canvas {
+        position: sticky;
+        top: 60px; /* 头部高度 */
+        left: 0;
+        z-index: 1;
+      }
+
+      /* SVG 依赖层 (垂直+水平滚动) */
+      .gantt-svg-overlay {
+        position: sticky;
+        top: 60px; /* 头部高度 */
+        left: 0;
+        z-index: 5;
+        pointer-events: none; /* 允许鼠标事件穿透到 Canvas */
+        overflow: visible;
+      }
+
+      .dependency-line {
+        fill: none;
+        stroke: #ef4444;
+        stroke-width: 1.5;
+        opacity: 0.7;
+        marker-end: url(#arrowhead);
+      }
+
+      /* 提示框 */
+      #gantt-tooltip {
+        position: fixed;
+        display: none;
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        border-radius: 6px;
+        font-size: 13px;
+        line-height: 1.6;
+        pointer-events: none;
+        z-index: 1000;
+        max-width: 300px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transition: opacity 0.1s ease; /* 移除 transform */
+      }
+      #gantt-tooltip strong {
+        color: #93c5fd;
+      }
+    </style>
+  </head>
+  <body class="p-0 m-0">
+    <div class="gantt-app">
+      <!-- 控制器 -->
+      <div class="gantt-controls p-4 bg-white rounded-lg shadow-sm flex flex-wrap gap-2 items-center">
+        <span class="font-semibold mr-4">切换视图:</span>
+        <div class="flex flex-wrap gap-2">
+          <button
+            id="btn-demo1"
+            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+          >
+            场景1: 项目进度计划
+          </button>
+          <button
+            id="btn-demo2"
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            场景2: 项目人员资源
+          </button>
+        </div>
+        <div class="w-full h-px md:w-px md:h-6 bg-gray-200 mx-4 my-2 md:my-0"></div>
+        <span class="font-semibold mr-4">时间缩放:</span>
+        <div class="flex flex-wrap gap-2">
+          <button
+            data-view="Day"
+            class="btn-view px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            日
+          </button>
+          <button
+            data-view="Week"
+            class="btn-view px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            周
+          </button>
+          <button
+            data-view="Month"
+            class="btn-view px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            月
+          </button>
+          <button
+            data-view="Year"
+            class="btn-view px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            年
+          </button>
+        </div>
+      </div>
+
+      <!-- 甘特图容器 -->
+      <div class="gantt-wrapper">
+        <!-- 侧边栏 -->
+        <div id="gantt-sidebar" class="gantt-sidebar">
+          <div id="gantt-sidebar-header" class="gantt-sidebar-header">
+            <span>任务/资源</span>
+          </div>
+          <!-- 虚拟滚动容器 -->
+          <div id="gantt-sidebar-content-wrapper" style="overflow: hidden; position: relative; height: 100%">
+            <div id="gantt-sidebar-content" class="gantt-sidebar-content">
+              <!-- 虚拟行 DOM 在此创建 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 甘特图 -->
+        <div id="gantt-chart-container" class="gantt-chart-container">
+          <!-- 1. 滚动条占位符 -->
+          <div id="gantt-scroll-dummy" class="gantt-scroll-dummy"></div>
+
+          <!-- 2. 头部 Canvas (Sticky) -->
+          <canvas id="gantt-header-canvas" class="gantt-header-canvas"></canvas>
+
+          <!-- 3. 主图表 Canvas (Sticky) -->
+          <canvas id="gantt-main-canvas" class="gantt-main-canvas"></canvas>
+
+          <!-- 4. SVG 叠加层 (Sticky) -->
+          <svg id="gantt-svg-overlay" class="gantt-svg-overlay">
+            <defs>
+              <marker
+                id="arrowhead"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" opacity="0.7"></path>
+              </marker>
+            </defs>
+            <g id="gantt-svg-links-group"></g>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- 浮动提示框 -->
+    <div id="gantt-tooltip"></div>
+
+    <script type="module">
+      // --- 日期工具类 ---
+      const DateUtils = {
+        ONE_DAY_MS: 24 * 60 * 60 * 1000,
+
+        format(date, format = 'yyyy-MM-dd') {
+          const o = {
+            'M+': date.getMonth() + 1,
+            'd+': date.getDate(),
+            'h+': date.getHours(),
+            'm+': date.getMinutes(),
+            's+': date.getSeconds(),
+            'q+': Math.floor((date.getMonth() + 3) / 3), // 季度
+            W: ['日', '一', '二', '三', '四', '五', '六'][date.getDay()] // 周
+          };
+          if (/(y+)/.test(format)) {
+            format = format.replace(RegExp.$1, (date.getFullYear() + '').substr(4 - RegExp.$1.length));
+          }
+          for (let k in o) {
+            if (new RegExp('(' + k + ')').test(format)) {
+              const val = k === 'W' ? o[k] : RegExp.$1.length == 1 ? o[k] : ('00' + o[k]).substr(('' + o[k]).length);
+              format = format.replace(RegExp.$1, val);
+            }
+          }
+          return format;
+        },
+
+        addDays(date, days) {
+          const result = new Date(date);
+          result.setDate(result.getDate() + days);
+          return result;
+        },
+
+        addMonths(date, months) {
+          const d = new Date(date);
+          d.setDate(1); // 避免月底问题
+          d.setMonth(d.getMonth() + months);
+          return d;
+        },
+
+        addYears(date, years) {
+          const result = new Date(date);
+          result.setFullYear(result.getFullYear() + years);
+          return result;
+        },
+
+        // 获取日期间隔（天）
+        diffDays(date1, date2) {
+          const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
+          const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
+          return Math.round((d2 - d1) / this.ONE_DAY_MS);
+        },
+
+        // 获取日期间隔（天），包含首尾
+        diffDaysInclusive(date1, date2) {
+          return this.diffDays(date1, date2) + 1;
+        },
+
+        getDaysInMonth(year, month) {
+          return new Date(year, month + 1, 0).getDate();
+        },
+
+        // 获取周数 (ISO 8601)
+        getWeekNumber(d) {
+          d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+          d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+          const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+          return weekNo;
+        },
+
+        getStartOfWeek(d) {
+          const date = new Date(d);
+          const day = date.getDay() || 7;
+          if (day !== 1) date.setHours(-24 * (day - 1));
+          return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        },
+
+        getStartOfMonth(d) {
+          return new Date(d.getFullYear(), d.getMonth(), 1);
+        },
+
+        getStartOfYear(d) {
+          return new Date(d.getFullYear(), 0, 1);
+        }
+      };
+
+      // --- 甘特图组件类 ---
+
+      /**
+       * @typedef {'Day' | 'Week' | 'Month' | 'Year'} ViewMode
+       * @typedef {object} GanttConfig
+       * @property {ViewMode} viewMode
+       * @property {number} rowHeight
+       * @property {number} headerHeight
+       * @property {boolean} showPlan
+       * @property {boolean} showActual
+       * @property {boolean} showRowLines
+       * @property {boolean} showColLines
+       * @property {boolean} showLeftRemark
+       * @property {boolean} showRightRemark
+       * @property {boolean} showTooltip
+       *
+       * @typedef {object} GanttTask
+       * @property {string} id
+       * @property {string} name
+       * @property {string} planStart
+       * @property {string} planEnd
+       * @property {string} [actualStart]
+       * @property {string} [actualEnd]
+       * @property {string} [leftRemark]
+       * @property {string} [rightRemark]
+       * @property {string[]} [dependencies]
+       * @property {string} [styleClass]
+       * @property {string} [type] - 'task', 'leave', 'milestone'
+       * @property {any} [data] - 附加数据
+       *
+       * @typedef {object} GanttRow
+       * @property {string} id
+       * @property {string} name
+       * @property {GanttTask[]} tasks
+       *
+       * @typedef {object} GanttData
+       * @property {GanttRow[]} rows
+       */
+
+      class GanttChart {
+        /**
+         * @param {HTMLElement} container
+         * @param {GanttData} data
+         * @param {Partial<GanttConfig>} config
+         */
+        constructor(container, data, config) {
+          this.container = container;
+          this.data = data;
+
+          /** @type {GanttConfig} */
+          this.config = {
+            viewMode: 'Month',
+            rowHeight: 40,
+            headerHeight: 60,
+            showPlan: true,
+            showActual: true,
+            showRowLines: true,
+            showColLines: true,
+            showLeftRemark: false,
+            showRightRemark: false,
+            showTooltip: true,
+            ...config
+          };
+
+          // DOM 元素
+          this.sidebar = document.getElementById('gantt-sidebar');
+          this.sidebarHeader = document.getElementById('gantt-sidebar-header');
+          this.sidebarContentWrapper = document.getElementById('gantt-sidebar-content-wrapper');
+          this.sidebarContent = document.getElementById('gantt-sidebar-content');
+
+          this.headerCanvas = document.getElementById('gantt-header-canvas');
+          this.mainCanvas = document.getElementById('gantt-main-canvas');
+          this.svgOverlay = document.getElementById('gantt-svg-overlay');
+          this.svgLinksGroup = document.getElementById('gantt-svg-links-group');
+          this.scrollDummy = document.getElementById('gantt-scroll-dummy');
+          this.tooltip = document.getElementById('gantt-tooltip');
+
+          // Canvas 上下文
+          this.headerCtx = this.headerCanvas.getContext('2d');
+          this.mainCtx = this.mainCanvas.getContext('2d');
+
+          // 状态
+          this.timelineStart = new Date();
+          this.timelineEnd = new Date();
+          this.totalWidth = 0;
+          this.totalHeight = 0;
+          this.pixelsPerDay = 40;
+
+          this.scrollLeft = 0;
+          this.scrollTop = 0;
+          this.viewportWidth = 0;
+          this.viewportHeight = 0;
+
+          this.visibleRowRange = { start: 0, end: 0 };
+          this.visibleDateRange = { start: new Date(), end: new Date() };
+
+          this.today = new Date(new Date().setHours(0, 0, 0, 0));
+
+          this.devicePixelRatio = window.devicePixelRatio || 1;
+
+          // 存储任务位置，用于依赖连线
+          /** @type {Map<string, { x_plan_start: number, x_plan_end: number, x_actual_start: number | null, x_actual_end: number | null, y: number, row: number}>} */
+          this.taskPositions = new Map();
+
+          // 预计算所有任务的位置（用于高性能依赖查找）
+          /** @type {Map<string, {row: number, task: GanttTask}>} */
+          this.taskMap = new Map();
+
+          this.init();
+        }
+
+        init() {
+          this.buildTaskMap();
+          this.calculateFullTimeline();
+          this.updatePixelsPerDay();
+          this.setupEvents();
+
+          // 初始调整大小和渲染
+          this.handleResize();
+          // handleResize 会调用 render, 所以这里不需要
+        }
+
+        buildTaskMap() {
+          this.taskMap.clear();
+          this.data.rows.forEach((row, rowIndex) => {
+            row.tasks.forEach(task => {
+              this.taskMap.set(task.id, { row: rowIndex, task });
+            });
+          });
+        }
+
+        setupEvents() {
+          this.container.addEventListener('scroll', this.handleScroll.bind(this));
+          window.addEventListener('resize', this.handleResize.bind(this));
+
+          if (this.config.showTooltip) {
+            this.mainCanvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+            this.mainCanvas.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
+          }
+        }
+
+        /** 更新配置 */
+        updateConfig(newConfig) {
+          Object.assign(this.config, newConfig);
+
+          if (newConfig.viewMode) {
+            this.updatePixelsPerDay();
+            this.calculateFullTimeline(); // 视图变化可能影响时间轴 padding
+          }
+
+          this.updateDimensions();
+          this.render();
+        }
+
+        /** 更新数据 */
+        setData(newData) {
+          this.data = newData;
+          this.buildTaskMap();
+          this.calculateFullTimeline();
+          this.updateDimensions();
+          this.render();
+        }
+
+        /** 1. 计算总时间轴 */
+        calculateFullTimeline() {
+          let minDate = new Date(9999, 0, 1);
+          let maxDate = new Date(1000, 0, 1);
+
+          if (this.data.rows.length === 0) {
+            minDate = new Date();
+            maxDate = DateUtils.addDays(new Date(), 30);
+          } else {
+            this.taskMap.forEach(({ task }) => {
+              const pStart = new Date(task.planStart);
+              const pEnd = new Date(task.planEnd);
+              if (pStart < minDate) minDate = pStart;
+              if (pEnd > maxDate) maxDate = pEnd;
+              if (task.actualStart && new Date(task.actualStart) < minDate) minDate = new Date(task.actualStart);
+              if (task.actualEnd && new Date(task.actualEnd) > maxDate) maxDate = new Date(task.actualEnd);
+            });
+          }
+
+          // 增加缓冲
+          switch (this.config.viewMode) {
+            case 'Year':
+              this.timelineStart = DateUtils.getStartOfYear(minDate);
+              this.timelineEnd = DateUtils.addDays(DateUtils.addYears(DateUtils.getStartOfYear(maxDate), 1), -1);
+              break;
+            case 'Month':
+              this.timelineStart = DateUtils.getStartOfMonth(minDate);
+              this.timelineEnd = DateUtils.addDays(DateUtils.addMonths(DateUtils.getStartOfMonth(maxDate), 1), -1);
+              break;
+            case 'Week':
+              this.timelineStart = DateUtils.getStartOfWeek(minDate);
+              this.timelineEnd = DateUtils.addDays(DateUtils.getStartOfWeek(maxDate), 7);
+              break;
+            case 'Day':
+            default:
+              this.timelineStart = DateUtils.addDays(minDate, -3);
+              this.timelineEnd = DateUtils.addDays(maxDate, 3);
+              break;
+          }
+        }
+
+        /** 2. 更新缩放级别 */
+        updatePixelsPerDay() {
+          const viewFactors = {
+            Day: 40,
+            Week: 14,
+            Month: 4.5,
+            Year: 1.5
+          };
+          this.pixelsPerDay = viewFactors[this.config.viewMode];
+        }
+
+        /** 3. 坐标转换 */
+        dateToX(date) {
+          const days = DateUtils.diffDays(this.timelineStart, date);
+          return days * this.pixelsPerDay;
+        }
+
+        xToDate(x) {
+          const days = x / this.pixelsPerDay;
+          return DateUtils.addDays(this.timelineStart, days);
+        }
+
+        /** 4. 事件处理 - 调整大小 */
+        handleResize() {
+          this.viewportWidth = this.container.clientWidth;
+          this.viewportHeight = this.container.clientHeight;
+
+          // 调整头部高度
+          this.sidebarHeader.style.height = `${this.config.headerHeight}px`;
+          // 调整侧边栏内容包裹器高度（减去头部）
+          this.sidebarContentWrapper.style.height = `calc(100% - ${this.config.headerHeight}px)`;
+
+          // 适配高DPI
+          this.setupCanvas(this.headerCanvas, this.viewportWidth, this.config.headerHeight);
+          this.setupCanvas(this.mainCanvas, this.viewportWidth, this.viewportHeight - this.config.headerHeight);
+
+          // 调整 SVG 覆盖层尺寸
+          this.svgOverlay.setAttribute('width', this.viewportWidth);
+          this.svgOverlay.setAttribute('height', this.viewportHeight - this.config.headerHeight);
+
+          this.updateDimensions();
+          this.render();
+        }
+
+        /** 5. 事件处理 - 滚动 (虚拟化核心) */
+        handleScroll(e) {
+          this.scrollLeft = e.target.scrollLeft;
+          this.scrollTop = e.target.scrollTop;
+
+          // 性能优化：使用 requestAnimationFrame
+          requestAnimationFrame(() => this.render());
+        }
+
+        /** 6. 更新虚拟范围 */
+        updateVirtualRanges() {
+          // 垂直 (行)
+          const startRow = Math.floor(this.scrollTop / this.config.rowHeight);
+          const endRow = Math.ceil((this.scrollTop + this.viewportHeight) / this.config.rowHeight);
+          this.visibleRowRange = { start: Math.max(0, startRow), end: Math.min(this.data.rows.length, endRow) };
+
+          // 水平 (日期)
+          // 增加缓冲区域（比如视口外 100px）以保证平滑
+          const buffer = 100;
+          this.visibleDateRange = {
+            start: this.xToDate(this.scrollLeft - buffer),
+            end: this.xToDate(this.scrollLeft + this.viewportWidth + buffer)
+          };
+        }
+
+        /** 7. 更新总尺寸 (用于滚动条) */
+        updateDimensions() {
+          const totalDays = DateUtils.diffDays(this.timelineStart, this.timelineEnd) + 1;
+          this.totalWidth = totalDays * this.pixelsPerDay;
+          this.totalHeight = this.data.rows.length * this.config.rowHeight + this.config.headerHeight;
+
+          this.scrollDummy.style.width = `${this.totalWidth}px`;
+          this.scrollDummy.style.height = `${this.totalHeight}px`;
+        }
+
+        /** 8. 设置 Canvas (DPI 适配) */
+        setupCanvas(canvas, width, height) {
+          canvas.width = width * this.devicePixelRatio;
+          canvas.height = height * this.devicePixelRatio;
+          canvas.style.width = `${width}px`;
+          canvas.style.height = `${height}px`;
+          const ctx = canvas.getContext('2d');
+          ctx.scale(this.devicePixelRatio, this.devicePixelRatio);
+        }
+
+        /** 9. 核心渲染循环 */
+        render() {
+          this.updateVirtualRanges();
+          this.taskPositions.clear(); // 清空缓存
+
+          // 渲染所有图层
+          this.renderHeader();
+          this.renderSidebar();
+          this.renderMain();
+
+          // SVG 依赖必须在 Main (Bara) 渲染完之后，
+          // 因为 renderMain 会填充 taskPositions
+          this.renderDependencies();
+        }
+
+        /** 9a. 渲染头部 */
+        renderHeader() {
+          const ctx = this.headerCtx;
+          const h = this.config.headerHeight;
+          const h_mid = h * 0.7; // 下层文字 Y
+          const h_top = h * 0.35; // 上层文字 Y
+
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          ctx.save();
+          ctx.translate(-this.scrollLeft, 0); // 关键：平移
+
+          // 绘制背景
+          ctx.fillStyle = '#f9f9f9';
+          ctx.fillRect(this.scrollLeft, 0, this.viewportWidth, h);
+
+          // 字体
+          const fontLight = `12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+          const fontBold = `bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          let currentDate = new Date(this.visibleDateRange.start);
+          currentDate = this.getIterationStartDate(currentDate); // 对齐到单位
+
+          let lastUpperText = '';
+          let lastUpperTextX = this.dateToX(currentDate);
+
+          while (currentDate <= this.visibleDateRange.end) {
+            const x = this.dateToX(currentDate);
+
+            let upperText = '';
+            let lowerText = '';
+            let unitWidth = 0;
+            let nextDate = new Date(currentDate);
+
+            switch (this.config.viewMode) {
+              case 'Day':
+                unitWidth = this.pixelsPerDay;
+                upperText = DateUtils.format(currentDate, 'yyyy年MM月');
+                lowerText = `${DateUtils.format(currentDate, 'dd')} ${DateUtils.format(currentDate, 'W')}`;
+                nextDate = DateUtils.addDays(currentDate, 1);
+                break;
+
+              case 'Week':
+                const weekStart = DateUtils.getStartOfWeek(currentDate);
+                unitWidth = this.pixelsPerDay * 7;
+                upperText = DateUtils.format(weekStart, 'yyyy年MM月');
+                lowerText = `第 ${DateUtils.getWeekNumber(weekStart)} 周`;
+                nextDate = DateUtils.addDays(weekStart, 7);
+                break;
+
+              case 'Month':
+                const daysInMonth = DateUtils.getDaysInMonth(currentDate.getFullYear(), currentDate.getMonth());
+                unitWidth = this.pixelsPerDay * daysInMonth;
+                upperText = `${currentDate.getFullYear()}年`;
+                lowerText = `${currentDate.getMonth() + 1}月`;
+                nextDate = DateUtils.addMonths(currentDate, 1);
+                break;
+
+              case 'Year':
+                const year = currentDate.getFullYear();
+                const daysInYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
+                unitWidth = this.pixelsPerDay * daysInYear;
+                upperText = `${year}年`;
+                lowerText = ''; // 年视图的下层单独绘制
+                nextDate = DateUtils.addYears(currentDate, 1);
+                break;
+            }
+
+            // --- 绘制上层 (合并) ---
+            if (upperText !== lastUpperText) {
+              if (lastUpperText) {
+                const prevWidth = x - lastUpperTextX;
+                ctx.fillStyle = '#333';
+                ctx.font = fontBold;
+                ctx.fillText(lastUpperText, lastUpperTextX + prevWidth / 2, h_top);
+              }
+              lastUpperText = upperText;
+              lastUpperTextX = x;
+            }
+
+            // --- 绘制下层 ---
+            ctx.fillStyle = '#666';
+            ctx.font = fontLight;
+
+            if (this.config.viewMode === 'Year') {
+              // 特殊绘制年视图
+              const midYearX = x + unitWidth / 2;
+              ctx.fillText('上半年', x + unitWidth * 0.25, h_mid);
+              ctx.fillText('下半年', x + unitWidth * 0.75, h_mid);
+
+              ctx.strokeStyle = '#e0e0e0';
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(midYearX, h * 0.5); // 从中间开始
+              ctx.lineTo(midYearX, h);
+              ctx.stroke();
+            } else {
+              ctx.fillText(lowerText, x + unitWidth / 2, h_mid);
+            }
+
+            // 绘制单元格垂直分隔线
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, h * 0.5); // 从中间开始
+            ctx.lineTo(x, h);
+            ctx.stroke();
+
+            currentDate = nextDate;
+          }
+
+          // 绘制最后一个剩余的上层文本
+          if (lastUpperText) {
+            // 估算结束位置
+            const endX = Math.max(this.dateToX(currentDate), this.scrollLeft + this.viewportWidth);
+            const lastWidth = endX - lastUpperTextX;
+            ctx.fillStyle = '#333';
+            ctx.font = fontBold;
+            ctx.fillText(lastUpperText, lastUpperTextX + lastWidth / 2, h_top);
+          }
+
+          // 绘制头部底线
+          ctx.strokeStyle = '#e0e0e0';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(this.scrollLeft, h - 0.5); // 0.5 像素修复模糊
+          ctx.lineTo(this.scrollLeft + this.viewportWidth, h - 0.5);
+          ctx.stroke();
+
+          ctx.restore();
+        }
+
+        // 获取渲染迭代的起始日期
+        getIterationStartDate(date) {
+          switch (this.config.viewMode) {
+            case 'Year':
+              return DateUtils.getStartOfYear(date);
+            case 'Month':
+              return DateUtils.getStartOfMonth(date);
+            case 'Week':
+              return DateUtils.getStartOfWeek(date);
+            case 'Day':
+            default:
+              return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+          }
+        }
+
+        /** 9b. 渲染侧边栏 (虚拟) */
+        renderSidebar() {
+          const { start, end } = this.visibleRowRange;
+          let html = '';
+
+          for (let i = start; i < end; i++) {
+            const row = this.data.rows[i];
+            html += `<div class="gantt-sidebar-row" style="height: ${
+              this.config.rowHeight
+            }px; position: absolute; top: ${i * this.config.rowHeight}px; width: 100%;">
+                        ${row.name}
+                    </div>`;
+          }
+
+          this.sidebarContent.innerHTML = html;
+
+          // 关键：侧边栏的 Y 轴平移
+          // 我们不平移，而是平移 sidebarContent 来同步滚动
+          // 不，我们应该让 sidebar-content-wrapper 滚动
+          // 不，container 是唯一滚动条。
+          // 最终方案：gantt-sidebar-content 绝对定位，通过 transform 同步
+          this.sidebarContent.style.transform = `translateY(${-this.scrollTop}px)`;
+
+          // 调整 sidebar-content 的总高度，以便内容溢出时计算正确
+          // (不需要，因为我们是绝对定位行)
+        }
+
+        /** 9c. 渲染主图表 (虚拟) */
+        renderMain() {
+          const ctx = this.mainCtx;
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          ctx.save();
+          ctx.translate(-this.scrollLeft, -this.scrollTop); // 关键：X Y 轴平移
+
+          const { start: startRow, end: endRow } = this.visibleRowRange;
+          const { start: startDate, end: endDate } = this.visibleDateRange;
+
+          // 1. 绘制网格线
+          this.drawGrid(ctx, startRow, endRow, startDate, endDate);
+
+          // 2. 绘制今天
+          this.drawToday(ctx);
+
+          // 3. 绘制任务条
+          ctx.textBaseline = 'middle';
+          ctx.font = '12px Arial';
+
+          for (let i = startRow; i < endRow; i++) {
+            const row = this.data.rows[i];
+            if (!row) continue; // 健壮性检查
+
+            const y = i * this.config.rowHeight;
+
+            row.tasks.forEach(task => {
+              // 水平虚拟化检查
+              const pStart = new Date(task.planStart);
+              const pEnd = new Date(task.planEnd);
+              if (pEnd < startDate || pStart > endDate) {
+                // 任务完全在视口之外，但仍需检查实际时间
+                if (!task.actualStart || !task.actualEnd) {
+                  return; // 确实在视口外
+                }
+                const aStart = new Date(task.actualStart);
+                const aEnd = new Date(task.actualEnd);
+                if (aEnd < startDate || aStart > endDate) {
+                  return; // 实际时间也在视口外
+                }
+              }
+              this.drawTask(ctx, task, y, i);
+            });
+          }
+
+          ctx.restore();
+        }
+
+        drawGrid(ctx, startRow, endRow, startDate, endDate) {
+          ctx.strokeStyle = '#f0f0f0';
+          ctx.lineWidth = 1;
+
+          // 水平行 (row lines)
+          if (this.config.showRowLines) {
+            for (let i = startRow; i <= endRow; i++) {
+              const y = i * this.config.rowHeight;
+              ctx.beginPath();
+              ctx.moveTo(this.scrollLeft, y);
+              ctx.lineTo(this.scrollLeft + this.viewportWidth, y);
+              ctx.stroke();
+            }
+          }
+
+          // 垂直行 (col lines)
+          if (this.config.showColLines) {
+            let currentDate = this.getIterationStartDate(startDate);
+            while (currentDate <= endDate) {
+              const x = this.dateToX(currentDate);
+
+              let showLine = false;
+              let nextDate;
+
+              switch (this.config.viewMode) {
+                case 'Year':
+                  showLine = currentDate.getMonth() === 0; // 每年
+                  nextDate = DateUtils.addMonths(currentDate, 1); // 检查点设为月
+                  break;
+                case 'Month':
+                  showLine = currentDate.getDate() === 1; // 每月
+                  nextDate = DateUtils.addDays(currentDate, 1);
+                  break;
+                case 'Week':
+                  showLine = currentDate.getDay() === 1; // 每周一
+                  nextDate = DateUtils.addDays(currentDate, 1);
+                  break;
+                case 'Day':
+                default:
+                  showLine = true; // 每天
+                  nextDate = DateUtils.addDays(currentDate, 1);
+                  break;
+              }
+
+              if (showLine) {
+                ctx.beginPath();
+                ctx.moveTo(x, this.scrollTop);
+                ctx.lineTo(x, this.scrollTop + this.viewportHeight);
+                ctx.stroke();
+              }
+              currentDate = nextDate;
+            }
+          }
+        }
+
+        drawToday(ctx) {
+          const x = this.dateToX(this.today);
+          if (x < this.scrollLeft || x > this.scrollLeft + this.viewportWidth) {
+            return; // 今天不在视口内
+          }
+
+          ctx.strokeStyle = '#ff4d4f';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x, this.scrollTop);
+          ctx.lineTo(x, this.scrollTop + this.viewportHeight);
+          ctx.stroke();
+        }
+
+        drawTask(ctx, task, y, rowIndex) {
+          const pStart = new Date(task.planStart);
+          const pEnd = new Date(task.planEnd);
+          const x_plan_start = this.dateToX(pStart);
+          // +1天
+          const x_plan_end = this.dateToX(DateUtils.addDays(pEnd, 1));
+          const width = x_plan_end - x_plan_start;
+
+          const taskY = y + this.config.rowHeight * 0.15;
+          const taskHeight = this.config.rowHeight * 0.7;
+
+          // 样式
+          const styles = this.getTaskStyles(task);
+
+          let x_actual_start = null;
+          let x_actual_end = null;
+
+          // 1. 绘制实际 (背景)
+          // 关键修复：无论是否显示，都要计算坐标，以便依赖连线逻辑能正确获取
+          if (task.actualStart && task.actualEnd) {
+            const aStart = new Date(task.actualStart);
+            const aEnd = new Date(task.actualEnd);
+            x_actual_start = this.dateToX(aStart);
+            x_actual_end = this.dateToX(DateUtils.addDays(aEnd, 1));
+
+            // 仅在配置开启时才真的绘制
+            if (this.config.showActual) {
+              const aWidth = x_actual_end - x_actual_start;
+              ctx.fillStyle = styles.actualBg;
+              ctx.fillRect(x_actual_start, taskY, aWidth, taskHeight);
+            }
+          }
+
+          // 2. 绘制计划 (顶部横线)
+          if (this.config.showPlan) {
+            ctx.strokeStyle = styles.planBorder;
+            ctx.lineWidth = 3; // 使用稍粗的线条
+            ctx.beginPath();
+            ctx.moveTo(x_plan_start, taskY); // 顶部左侧
+            ctx.lineTo(x_plan_start + width, taskY); // 顶部右侧
+            ctx.stroke();
+          }
+
+          const textY = y + this.config.rowHeight / 2;
+          ctx.fillStyle = '#333';
+
+          // 3. 绘制备注
+          if (this.config.showLeftRemark && task.leftRemark) {
+            ctx.textAlign = 'right';
+            ctx.fillText(task.leftRemark, x_plan_start - 8, textY);
+          }
+          if (this.config.showRightRemark && task.rightRemark) {
+            ctx.textAlign = 'left';
+            ctx.fillText(task.rightRemark, x_plan_end + 8, textY);
+          }
+
+          // 4. 存储位置 (用于 SVG 连线)
+          this.taskPositions.set(task.id, {
+            x_plan_start,
+            x_plan_end,
+            x_actual_start,
+            x_actual_end,
+            y: y + this.config.rowHeight / 2,
+            row: rowIndex
+          });
+        }
+
+        getTaskStyles(task) {
+          // 默认
+          let styles = {
+            planBorder: '#2563eb', // 计划 - 深蓝
+            actualBg: '#3b82f6' // 实际 - 蓝色
+          };
+
+          // 场景1: 项目
+          if (task.styleClass === 'demo1-task') {
+            styles.planBorder = '#fb923c'; // 橙色
+            styles.actualBg = '#fdba74'; // 浅橙色
+          }
+
+          // 场景2: 资源
+          if (task.styleClass === 'demo2-plan') {
+            styles.planBorder = '#22c55e'; // 绿色
+          }
+          if (task.styleClass === 'demo2-completed') {
+            styles.actualBg = '#86efac'; // 浅绿色
+          }
+          if (task.styleClass === 'demo2-leave') {
+            styles.actualBg = '#f43f5e'; // 玫瑰红
+          }
+
+          return styles;
+        }
+
+        /** 9d. 渲染 SVG 依赖 */
+        renderDependencies() {
+          // 平移 SVG <g> 组来同步滚动
+          this.svgLinksGroup.setAttribute('transform', `translate(${-this.scrollLeft}, ${-this.scrollTop})`);
+
+          // 清空旧连线
+          this.svgLinksGroup.innerHTML = '';
+
+          // 渲染视口内的连线
+          for (let i = this.visibleRowRange.start; i < this.visibleRowRange.end; i++) {
+            const row = this.data.rows[i];
+            row.tasks.forEach(task => {
+              if (!task.dependencies || task.dependencies.length === 0) return;
+
+              // 目标任务 (必须在视口内)
+              const toPos = this.taskPositions.get(task.id);
+              if (!toPos) return;
+
+              task.dependencies.forEach(depId => {
+                // 源任务 (可能在视口外)
+                let fromPos = this.taskPositions.get(depId);
+                if (!fromPos) {
+                  // 源任务不在视口内，从 map 中查找并计算
+                  const fromTaskData = this.taskMap.get(depId);
+                  if (!fromTaskData) return;
+
+                  const pStart = new Date(fromTaskData.task.planStart);
+                  const pEnd = new Date(fromTaskData.task.planEnd);
+                  const x_plan_start = this.dateToX(pStart);
+                  const x_plan_end = this.dateToX(DateUtils.addDays(pEnd, 1));
+
+                  let x_actual_start = null;
+                  let x_actual_end = null;
+
+                  // 关键修复：移除 this.config.showActual 检查，无条件计算坐标
+                  if (fromTaskData.task.actualStart && fromTaskData.task.actualEnd) {
+                    const aStart = new Date(fromTaskData.task.actualStart);
+                    const aEnd = new Date(fromTaskData.task.actualEnd);
+                    x_actual_start = this.dateToX(aStart);
+                    x_actual_end = this.dateToX(DateUtils.addDays(aEnd, 1));
+                  }
+
+                  fromPos = {
+                    x_plan_start,
+                    x_plan_end,
+                    x_actual_start,
+                    x_actual_end,
+                    y: fromTaskData.row * this.config.rowHeight + this.config.rowHeight / 2,
+                    row: fromTaskData.row
+                  };
+                }
+
+                this.drawDependencyLine(fromPos, toPos);
+              });
+            });
+          }
+        }
+
+        drawDependencyLine(from, to) {
+          // 起点：取 计划结束 和 实际结束 中最晚的
+          const fromX = Math.max(from.x_plan_end, from.x_actual_end || from.x_plan_end);
+          const fromY = from.y;
+
+          // 终点：取 计划开始 和 实际开始 中最早的
+          const toX = Math.min(to.x_plan_start, to.x_actual_start || to.x_plan_start);
+          const toY = to.y;
+
+          // 如果终点在起点之前，不绘制（或绘制反向，这里先不绘制）
+          if (toX <= fromX) return;
+
+          const curve = 20;
+
+          let pathD = `M ${fromX} ${fromY} `;
+          pathD += `H ${fromX + curve} `;
+          pathD += `V ${toY} `;
+          pathD += `H ${toX - curve} `;
+          pathD += `L ${toX} ${toY}`;
+
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', pathD);
+          path.setAttribute('class', 'dependency-line');
+          this.svgLinksGroup.appendChild(path);
+        }
+
+        /** 10. 交互 - 提示框 */
+        handleMouseMove(e) {
+          const rect = this.mainCanvas.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+
+          const chartX = mouseX + this.scrollLeft;
+          const chartY = mouseY + this.scrollTop;
+
+          const rowIndex = Math.floor(chartY / this.config.rowHeight);
+          const date = this.xToDate(chartX);
+
+          if (rowIndex < 0 || rowIndex >= this.data.rows.length) {
+            this.handleMouseLeave();
+            return;
+          }
+
+          const row = this.data.rows[rowIndex];
+          if (!row) {
+            // 健壮性检查
+            this.handleMouseLeave();
+            return;
+          }
+
+          // 查找悬浮位置的所有任务
+          const overlappingTasks = row.tasks.filter(task => {
+            const pStart = new Date(task.planStart);
+            const pEnd = DateUtils.addDays(new Date(task.planEnd), 1);
+
+            if (date >= pStart && date < pEnd) return true; // 使用 < pEnd
+
+            if (task.actualStart && task.actualEnd) {
+              const aStart = new Date(task.actualStart);
+              const aEnd = DateUtils.addDays(new Date(task.actualEnd), 1);
+              if (date >= aStart && date < aEnd) return true; // 使用 < aEnd
+            }
+            return false;
+          });
+
+          if (overlappingTasks.length === 0) {
+            this.handleMouseLeave();
+            return;
+          }
+
+          // 生成 Tooltip 内容
+          let html = `<strong>${row.name}</strong> (${DateUtils.format(
+            date,
+            'yyyy-MM-dd'
+          )})<hr class="my-1 border-gray-500">`;
+
+          overlappingTasks.forEach(task => {
+            html += this.getTaskTooltipHtml(task);
+          });
+
+          this.tooltip.innerHTML = html;
+          this.tooltip.style.display = 'block';
+
+          // 确保 tooltip 不会超出屏幕
+          const tipRect = this.tooltip.getBoundingClientRect();
+          let x = e.clientX + 15;
+          let y = e.clientY + 15;
+
+          if (x + tipRect.width > window.innerWidth) {
+            x = e.clientX - 15 - tipRect.width;
+          }
+          if (y + tipRect.height > window.innerHeight) {
+            y = e.clientY - 15 - tipRect.height;
+          }
+
+          this.tooltip.style.left = `${x}px`;
+          this.tooltip.style.top = `${y}px`;
+          this.tooltip.style.transform = 'none'; // 移除 transform
+        }
+
+        getTaskTooltipHtml(task) {
+          // 场景2：资源视图的特殊处理
+          if (task.type === 'leave') {
+            const days = DateUtils.diffDaysInclusive(new Date(task.actualStart), new Date(task.actualEnd));
+            return `
+                        <div>
+                            <span style="color: #f43f5e;">■</span>
+                            <strong>${task.name} (${days}天)</strong><br>
+                            <span class="ml-4">${task.actualStart} 到 ${task.actualEnd}</span>
+                        </div>`;
+          }
+
+          // 默认任务
+          let html = `<div><span style="color: ${this.getTaskStyles(task).planBorder};">■</span> <strong>${
+            task.name
+          }</strong><br>`;
+          if (this.config.showPlan) {
+            const planDays = DateUtils.diffDaysInclusive(new Date(task.planStart), new Date(task.planEnd));
+            html += `<span class="ml-4">计划: ${task.planStart} - ${task.planEnd} (${planDays}天)</span><br>`;
+          }
+          if (this.config.showActual && task.actualStart) {
+            const actualDays = DateUtils.diffDaysInclusive(new Date(task.actualStart), new Date(task.actualEnd));
+            html += `<span class="ml-4">实际: ${task.actualStart} - ${task.actualEnd} (${actualDays}天)</span><br>`;
+          }
+          return html + '</div>';
+        }
+
+        handleMouseLeave() {
+          this.tooltip.style.display = 'none';
+          // 重置位置，避免下次显示时闪烁
+          this.tooltip.style.left = '-1000px';
+          this.tooltip.style.top = '-1000px';
+        }
+      }
+
+      // --- 演示数据和初始化 ---
+
+      /** 场景1: 项目进度计划 */
+      function getDemo1Data() {
+        return {
+          rows: [
+            {
+              id: 'proj1',
+              name: '项目规划',
+              tasks: [
+                {
+                  id: 't1',
+                  name: '需求分析',
+                  planStart: '2025-11-01',
+                  planEnd: '2025-11-05',
+                  actualStart: '2025-11-01',
+                  actualEnd: '2025-11-04',
+                  leftRemark: '张三',
+                  rightRemark: '已完成',
+                  styleClass: 'demo1-task'
+                }
+              ]
+            },
+            {
+              id: 'proj2',
+              name: '设计阶段',
+              tasks: [
+                {
+                  id: 't2',
+                  name: 'UI/UX 设计',
+                  planStart: '2025-11-06',
+                  planEnd: '2025-11-10',
+                  actualStart: '2025-11-07',
+                  actualEnd: '2025-11-11',
+                  dependencies: ['t1'],
+                  leftRemark: '李四',
+                  rightRemark: '进行中',
+                  styleClass: 'demo1-task'
+                },
+                {
+                  id: 't4',
+                  name: 'API 设计',
+                  planStart: '2025-11-06',
+                  planEnd: '2025-11-08',
+                  actualStart: '2025-11-06',
+                  actualEnd: '2025-11-07',
+                  dependencies: ['t1'],
+                  leftRemark: '赵六',
+                  rightRemark: '已完成',
+                  styleClass: 'demo1-task'
+                }
+              ]
+            },
+            {
+              id: 'proj3',
+              name: '开发阶段',
+              tasks: [
+                {
+                  id: 't3',
+                  name: '前端开发',
+                  planStart: '2025-11-12',
+                  planEnd: '2025-11-20',
+                  actualStart: '2025-11-13',
+                  actualEnd: '2025-11-18',
+                  dependencies: ['t2'],
+                  leftRemark: '王五',
+                  rightRemark: '进行中',
+                  styleClass: 'demo1-task'
+                },
+                {
+                  id: 't5',
+                  name: '后端开发',
+                  planStart: '2025-11-09',
+                  planEnd: '2025-11-16',
+                  actualStart: '2025-11-09',
+                  actualEnd: '2025-11-15',
+                  dependencies: ['t4'],
+                  leftRemark: '孙七',
+                  rightRemark: '已完成',
+                  styleClass: 'demo1-task'
+                }
+              ]
+            },
+            {
+              id: 'proj4',
+              name: '测试与集成',
+              tasks: [
+                {
+                  id: 't6',
+                  name: '集成测试',
+                  planStart: '2025-11-21',
+                  planEnd: '2025-11-28',
+                  dependencies: ['t3', 't5'],
+                  leftRemark: '测试组',
+                  rightRemark: '未开始',
+                  styleClass: 'demo1-task'
+                }
+              ]
+            },
+            // 增加大量数据用于测试虚拟滚动
+            ...Array.from({ length: 500 }, (_, i) => ({
+              id: `proj_virt_${i}`,
+              name: `虚拟项目 ${i + 1}`,
+              tasks: [
+                {
+                  id: `vt_${i}_1`,
+                  name: `任务 ${i}.1`,
+                  planStart: '2025-12-01',
+                  planEnd: '2025-12-10',
+                  styleClass: 'demo1-task'
+                },
+                {
+                  id: `vt_${i}_2`,
+                  name: `任务 ${i}.2`,
+                  planStart: '2025-12-12',
+                  planEnd: '2025-12-20',
+                  dependencies: [`vt_${i}_1`],
+                  styleClass: 'demo1-task'
+                }
+              ]
+            }))
+          ]
+        };
+      }
+
+      /** 场景2: 项目人员资源 */
+      function getDemo2Data() {
+        return {
+          rows: [
+            {
+              id: 'user1',
+              name: '张三',
+              tasks: [
+                {
+                  id: 'u1_leave',
+                  name: '年假',
+                  type: 'leave',
+                  actualStart: '2025-11-03',
+                  actualEnd: '2025-11-05',
+                  styleClass: 'demo2-leave'
+                },
+                {
+                  id: 'u1_task_p1',
+                  name: '任务A (计划)',
+                  type: 'task',
+                  planStart: '2025-11-06',
+                  planEnd: '2025-11-12',
+                  styleClass: 'demo2-plan'
+                },
+                {
+                  id: 'u1_task_d1',
+                  name: '任务B (完成)',
+                  type: 'task',
+                  actualStart: '2025-11-13',
+                  actualEnd: '2025-11-15',
+                  styleClass: 'demo2-completed',
+                  planStart: '2025-11-13',
+                  planEnd: '2025-11-16'
+                } // plan 也需要，否则 tooltip 找不到
+              ]
+            },
+            {
+              id: 'user2',
+              name: '李四',
+              tasks: [
+                {
+                  id: 'u2_task_d1',
+                  name: '任务C (完成)',
+                  type: 'task',
+                  actualStart: '2025-11-01',
+                  actualEnd: '2025-11-06',
+                  styleClass: 'demo2-completed',
+                  planStart: '2025-11-01',
+                  planEnd: '2025-11-06'
+                },
+                {
+                  id: 'u2_task_p1',
+                  name: '任务D (计划)',
+                  type: 'task',
+                  planStart: '2025-11-07',
+                  planEnd: '2025-11-10',
+                  styleClass: 'demo2-plan'
+                },
+                {
+                  id: 'u2_task_p2',
+                  name: '任务E (计划)',
+                  type: 'task',
+                  planStart: '2025-11-07',
+                  planEnd: '2025-11-14',
+                  styleClass: 'demo2-plan'
+                }, // 重叠任务
+                {
+                  id: 'u2_leave',
+                  name: '事假',
+                  type: 'leave',
+                  actualStart: '2025-11-13',
+                  actualEnd: '2025-11-13',
+                  styleClass: 'demo2-leave'
+                }
+              ]
+            },
+            {
+              id: 'user3',
+              name: '王五',
+              tasks: [
+                {
+                  id: 'u3_task_p1',
+                  name: '架构设计 (计划)',
+                  type: 'task',
+                  planStart: '2025-11-10',
+                  planEnd: '2025-11-18',
+                  styleClass: 'demo2-plan'
+                },
+                {
+                  id: 'u3_leave',
+                  name: '病假',
+                  type: 'leave',
+                  actualStart: '2025-11-19',
+                  actualEnd: '2025-11-20',
+                  styleClass: 'demo2-leave'
+                }
+              ]
+            },
+            // 增加大量数据用于测试虚拟滚动
+            ...Array.from({ length: 500 }, (_, i) => ({
+              id: `user_virt_${i}`,
+              name: `员工 ${i + 4}`,
+              tasks: [
+                {
+                  id: `uvt_${i}_1`,
+                  name: `常规任务 ${i}`,
+                  type: 'task',
+                  planStart: '2025-11-01',
+                  planEnd: '2025-11-30',
+                  styleClass: 'demo2-plan'
+                },
+                {
+                  id: `uvt_${i}_2`,
+                  name: `休假 ${i}`,
+                  type: 'leave',
+                  actualStart: '2025-12-05',
+                  actualEnd: '2025-12-08',
+                  styleClass: 'demo2-leave'
+                }
+              ]
+            }))
+          ]
+        };
+      }
+
+      /** 启动应用 */
+      document.addEventListener('DOMContentLoaded', () => {
+        const container = document.getElementById('gantt-chart-container');
+        if (!container) return;
+
+        // 默认配置
+        const defaultConfig = {
+          rowHeight: 50,
+          headerHeight: 60,
+          showRowLines: true,
+          showColLines: true,
+          showTooltip: true,
+          viewMode: 'Week'
+        };
+
+        // 初始化甘特图
+        const chart = new GanttChart(container, getDemo1Data(), {
+          ...defaultConfig,
+          showLeftRemark: true,
+          showRightRemark: true
+        });
+
+        const demo1Btn = document.getElementById('btn-demo1');
+        const demo2Btn = document.getElementById('btn-demo2');
+
+        // 切换到场景1
+        function loadDemo1() {
+          chart.setData(getDemo1Data());
+          chart.updateConfig({
+            showLeftRemark: true,
+            showRightRemark: true,
+            showActual: true,
+            showPlan: true,
+            rowHeight: 50
+          });
+          demo1Btn.classList.replace('bg-gray-100', 'bg-blue-600');
+          demo1Btn.classList.replace('text-gray-700', 'text-white');
+          demo2Btn.classList.replace('bg-blue-600', 'bg-gray-100');
+          demo2Btn.classList.replace('text-white', 'text-gray-700');
+          document.getElementById('gantt-sidebar-header').textContent = '项目/任务';
+        }
+
+        // 切换到场景2
+        function loadDemo2() {
+          chart.setData(getDemo2Data());
+          chart.updateConfig({
+            showLeftRemark: false,
+            showRightRemark: false,
+            showActual: true,
+            showPlan: true,
+            rowHeight: 60
+          });
+          demo2Btn.classList.replace('bg-gray-100', 'bg-blue-600');
+          demo2Btn.classList.replace('text-gray-700', 'text-white');
+          demo1Btn.classList.replace('bg-blue-600', 'bg-gray-100');
+          demo1Btn.classList.replace('text-white', 'text-gray-700');
+          document.getElementById('gantt-sidebar-header').textContent = '人员/资源';
+        }
+
+        demo1Btn.addEventListener('click', loadDemo1);
+        demo2Btn.addEventListener('click', loadDemo2);
+
+        // 视图切换按钮
+        const viewBtns = document.querySelectorAll('.btn-view');
+        viewBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            const viewMode = btn.dataset.view;
+            chart.updateConfig({ viewMode: viewMode });
+
+            viewBtns.forEach(b => {
+              b.classList.remove('bg-blue-500', 'text-white');
+              b.classList.add('bg-gray-100', 'text-gray-700');
+            });
+            btn.classList.add('bg-blue-500', 'text-white');
+            btn.classList.remove('bg-gray-100', 'text-gray-700');
+          });
+        });
+
+        // 默认加载
+        loadDemo1();
+        document.querySelector('.btn-view[data-view="Week"]').click();
+      });
+    </script>
+  </body>
+</html>
