@@ -14,65 +14,68 @@
         overflow: hidden;
       }
 
-      .gantt-app {
+      /* 顶层容器 */
+      .gantt-app-container {
         display: flex;
         flex-direction: column;
         height: 100vh;
         padding: 1rem;
+        gap: 1rem;
       }
 
       .gantt-controls {
         flex-shrink: 0;
-        margin-bottom: 1rem;
       }
 
-      .gantt-wrapper {
+      /* 主内容区: 表格 + 甘特图 */
+      .gantt-main-area {
         display: flex;
-        width: 100%;
         flex-grow: 1; /* 占据剩余高度 */
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
         overflow: hidden;
-        background: white;
+        border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e0e0e0;
       }
 
-      /* 侧边栏 */
-      .gantt-sidebar {
+      /* 外部表格 (解耦) */
+      #external-table {
         width: 200px;
         flex-shrink: 0;
-        border-right: 1px solid #e0e0e0;
         background: #fafafa;
-        /* 关键：阻止侧边栏自己滚动 */
-        overflow: hidden;
-        position: relative;
+        display: flex;
+        flex-direction: column;
       }
-
-      .gantt-sidebar-header {
+      /* 外部表格-头部 (固定) */
+      #external-table-header {
         height: 60px; /* 匹配甘特图头部高度 */
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         padding: 0 16px;
         font-weight: 600;
         border-bottom: 1px solid #e0e0e0;
         box-sizing: border-box;
-        background: #fafafa;
-        position: sticky; /* 钉在顶部 */
-        top: 0;
-        z-index: 20;
       }
-
-      /* 侧边栏虚拟滚动容器 */
-      .gantt-sidebar-content {
-        /* 绝对定位，用于 transform 虚拟滚动 */
+      /* 外部表格-滚动区 (仅此区域滚动) */
+      #external-table-scroll {
+        flex-grow: 1;
+        overflow-y: auto; /* 关键: 外部表格有自己的滚动条 */
+        overflow-x: hidden;
+        position: relative;
+      }
+      #external-table-content {
+        position: relative; /* 虚拟行容器 */
+        width: 100%;
+      }
+      #external-table-dummy {
         position: absolute;
         top: 0;
         left: 0;
-        width: 100%;
-        will-change: transform;
+        opacity: 0;
+        pointer-events: none;
       }
-
-      .gantt-sidebar-row {
+      /* 外部表格-虚拟行 */
+      .external-sidebar-row {
         display: flex;
         align-items: center;
         padding: 0 16px;
@@ -82,17 +85,30 @@
         overflow: hidden;
         text-overflow: ellipsis;
         border-bottom: 1px solid #f0f0f0;
+        position: absolute;
+        left: 0;
+        width: 100%;
       }
 
-      /* 甘特图主区域 */
+      /* 甘特图-包裹 */
+      #gantt-chart-wrapper {
+        flex-grow: 1;
+        overflow: hidden; /* 无滚动条 */
+        position: relative;
+        background: white;
+        border-left: 1px solid #e0e0e0;
+      }
+
+      /* 甘特图-滚动容器 (唯一的滚动条) */
       .gantt-chart-container {
         flex-grow: 1;
         overflow: auto; /* 关键：这是唯一的滚动条 */
         position: relative;
         background: #ffffff;
+        height: 100%; /* 必须占满 wrapper */
       }
 
-      /* 滚动条占位符 (用于撑开容器) */
+      /* 滚动条占位符 (撑开容器) */
       .gantt-scroll-dummy {
         position: absolute;
         top: 0;
@@ -102,7 +118,7 @@
         pointer-events: none;
       }
 
-      /* 头部 Canvas (水平滚动) */
+      /* 头部 Canvas (Sticky) */
       .gantt-header-canvas {
         position: sticky;
         top: 0;
@@ -112,7 +128,7 @@
         border-bottom: 1px solid #e0e0e0;
       }
 
-      /* 主内容 Canvas (垂直+水平滚动) */
+      /* 主内容 Canvas (Sticky) */
       .gantt-main-canvas {
         position: sticky;
         top: 60px; /* 头部高度 */
@@ -120,7 +136,7 @@
         z-index: 1;
       }
 
-      /* SVG 依赖层 (垂直+水平滚动) */
+      /* SVG 依赖层 (Sticky) */
       .gantt-svg-overlay {
         position: sticky;
         top: 60px; /* 头部高度 */
@@ -136,6 +152,7 @@
         stroke-width: 1.5;
         opacity: 0.7;
         marker-end: url(#arrowhead);
+        stroke-linejoin: round; /* 拐角更平滑 */
       }
 
       /* 提示框 */
@@ -152,7 +169,7 @@
         z-index: 1000;
         max-width: 300px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        transition: opacity 0.1s ease; /* 移除 transform */
+        transition: opacity 0.1s ease;
       }
       #gantt-tooltip strong {
         color: #93c5fd;
@@ -160,7 +177,7 @@
     </style>
   </head>
   <body class="p-0 m-0">
-    <div class="gantt-app">
+    <div class="gantt-app-container">
       <!-- 控制器 -->
       <div class="gantt-controls p-4 bg-white rounded-lg shadow-sm flex flex-wrap gap-2 items-center">
         <span class="font-semibold mr-4">切换视图:</span>
@@ -208,49 +225,54 @@
         </div>
       </div>
 
-      <!-- 甘特图容器 -->
-      <div class="gantt-wrapper">
-        <!-- 侧边栏 -->
-        <div id="gantt-sidebar" class="gantt-sidebar">
-          <div id="gantt-sidebar-header" class="gantt-sidebar-header">
-            <span>任务/资源</span>
+      <!-- 主内容区: 表格 + 甘特图 -->
+      <div class="gantt-main-area">
+        <!-- 外部表格 (解耦) -->
+        <div id="external-table">
+          <!-- 头部 (固定) -->
+          <div id="external-table-header">
+            <span>任务/资源 (外部)</span>
           </div>
-          <!-- 虚拟滚动容器 -->
-          <div id="gantt-sidebar-content-wrapper" style="overflow: hidden; position: relative; height: 100%">
-            <div id="gantt-sidebar-content" class="gantt-sidebar-content">
+          <!-- 滚动区 -->
+          <div id="external-table-scroll">
+            <div id="external-table-content">
               <!-- 虚拟行 DOM 在此创建 -->
             </div>
+            <div id="external-table-dummy"></div>
           </div>
         </div>
 
-        <!-- 甘特图 -->
-        <div id="gantt-chart-container" class="gantt-chart-container">
-          <!-- 1. 滚动条占位符 -->
-          <div id="gantt-scroll-dummy" class="gantt-scroll-dummy"></div>
+        <!-- 甘特图 (包裹) -->
+        <div id="gantt-chart-wrapper">
+          <!-- 甘特图 (滚动容器) -->
+          <div id="gantt-chart-container" class="gantt-chart-container">
+            <!-- 1. 滚动条占位符 -->
+            <div id="gantt-scroll-dummy" class="gantt-scroll-dummy"></div>
 
-          <!-- 2. 头部 Canvas (Sticky) -->
-          <canvas id="gantt-header-canvas" class="gantt-header-canvas"></canvas>
+            <!-- 2. 头部 Canvas (Sticky) -->
+            <canvas id="gantt-header-canvas" class="gantt-header-canvas"></canvas>
 
-          <!-- 3. 主图表 Canvas (Sticky) -->
-          <canvas id="gantt-main-canvas" class="gantt-main-canvas"></canvas>
+            <!-- 3. 主图表 Canvas (Sticky) -->
+            <canvas id="gantt-main-canvas" class="gantt-main-canvas"></canvas>
 
-          <!-- 4. SVG 叠加层 (Sticky) -->
-          <svg id="gantt-svg-overlay" class="gantt-svg-overlay">
-            <defs>
-              <marker
-                id="arrowhead"
-                viewBox="0 0 10 10"
-                refX="9"
-                refY="5"
-                markerWidth="6"
-                markerHeight="6"
-                orient="auto-start-reverse"
-              >
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" opacity="0.7"></path>
-              </marker>
-            </defs>
-            <g id="gantt-svg-links-group"></g>
-          </svg>
+            <!-- 4. SVG 叠加层 (Sticky) -->
+            <svg id="gantt-svg-overlay" class="gantt-svg-overlay">
+              <defs>
+                <marker
+                  id="arrowhead"
+                  viewBox="0 0 10 10"
+                  refX="9"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" opacity="0.7"></path>
+                </marker>
+              </defs>
+              <g id="gantt-svg-links-group"></g>
+            </svg>
+          </div>
         </div>
       </div>
     </div>
@@ -410,11 +432,6 @@
           };
 
           // DOM 元素
-          this.sidebar = document.getElementById('gantt-sidebar');
-          this.sidebarHeader = document.getElementById('gantt-sidebar-header');
-          this.sidebarContentWrapper = document.getElementById('gantt-sidebar-content-wrapper');
-          this.sidebarContent = document.getElementById('gantt-sidebar-content');
-
           this.headerCanvas = document.getElementById('gantt-header-canvas');
           this.mainCanvas = document.getElementById('gantt-main-canvas');
           this.svgOverlay = document.getElementById('gantt-svg-overlay');
@@ -438,6 +455,7 @@
           this.viewportWidth = 0;
           this.viewportHeight = 0;
 
+          // 渲染虚拟化所需
           this.visibleRowRange = { start: 0, end: 0 };
           this.visibleDateRange = { start: new Date(), end: new Date() };
 
@@ -445,11 +463,12 @@
 
           this.devicePixelRatio = window.devicePixelRatio || 1;
 
-          // 存储任务位置，用于依赖连线
+          // ** 连线修复核心 **
+          // 存储 *所有* 任务的位置，用于依赖连线
           /** @type {Map<string, { x_plan_start: number, x_plan_end: number, x_actual_start: number | null, x_actual_end: number | null, y: number, row: number}>} */
           this.taskPositions = new Map();
 
-          // 预计算所有任务的位置（用于高性能依赖查找）
+          // 任务 ID 到 行/任务 的快速查找
           /** @type {Map<string, {row: number, task: GanttTask}>} */
           this.taskMap = new Map();
 
@@ -464,7 +483,6 @@
 
           // 初始调整大小和渲染
           this.handleResize();
-          // handleResize 会调用 render, 所以这里不需要
         }
 
         buildTaskMap() {
@@ -492,11 +510,11 @@
 
           if (newConfig.viewMode) {
             this.updatePixelsPerDay();
-            this.calculateFullTimeline(); // 视图变化可能影响时间轴 padding
+            this.calculateFullTimeline();
           }
 
           this.updateDimensions();
-          this.render();
+          this.render(); // 重新渲染
         }
 
         /** 更新数据 */
@@ -505,7 +523,7 @@
           this.buildTaskMap();
           this.calculateFullTimeline();
           this.updateDimensions();
-          this.render();
+          this.render(); // 重新渲染
         }
 
         /** 1. 计算总时间轴 */
@@ -576,11 +594,6 @@
           this.viewportWidth = this.container.clientWidth;
           this.viewportHeight = this.container.clientHeight;
 
-          // 调整头部高度
-          this.sidebarHeader.style.height = `${this.config.headerHeight}px`;
-          // 调整侧边栏内容包裹器高度（减去头部）
-          this.sidebarContentWrapper.style.height = `calc(100% - ${this.config.headerHeight}px)`;
-
           // 适配高DPI
           this.setupCanvas(this.headerCanvas, this.viewportWidth, this.config.headerHeight);
           this.setupCanvas(this.mainCanvas, this.viewportWidth, this.viewportHeight - this.config.headerHeight);
@@ -593,24 +606,42 @@
           this.render();
         }
 
-        /** 5. 事件处理 - 滚动 (虚拟化核心) */
+        /** 5. 事件处理 - 滚动 (渲染虚拟化核心) */
         handleScroll(e) {
           this.scrollLeft = e.target.scrollLeft;
           this.scrollTop = e.target.scrollTop;
+
+          // 触发自定义事件，用于同步外部表格
+          const event = new CustomEvent('ganttscroll', {
+            detail: {
+              scrollTop: this.scrollTop,
+              scrollLeft: this.scrollLeft
+            }
+          });
+          this.container.dispatchEvent(event);
 
           // 性能优化：使用 requestAnimationFrame
           requestAnimationFrame(() => this.render());
         }
 
-        /** 6. 更新虚拟范围 */
+        /** * 公共方法: 允许外部表格控制甘特图滚动
+         * @param {number} scrollTop
+         */
+        setScrollTop(scrollTop) {
+          if (this.scrollTop !== scrollTop) {
+            this.container.scrollTop = scrollTop;
+          }
+        }
+
+        /** 6. 更新渲染虚拟范围 */
         updateVirtualRanges() {
           // 垂直 (行)
+          // 这是一个核心的 *渲染* 虚拟化：只计算在视口中的行
           const startRow = Math.floor(this.scrollTop / this.config.rowHeight);
           const endRow = Math.ceil((this.scrollTop + this.viewportHeight) / this.config.rowHeight);
           this.visibleRowRange = { start: Math.max(0, startRow), end: Math.min(this.data.rows.length, endRow) };
 
           // 水平 (日期)
-          // 增加缓冲区域（比如视口外 100px）以保证平滑
           const buffer = 100;
           this.visibleDateRange = {
             start: this.xToDate(this.scrollLeft - buffer),
@@ -624,6 +655,7 @@
           this.totalWidth = totalDays * this.pixelsPerDay;
           this.totalHeight = this.data.rows.length * this.config.rowHeight + this.config.headerHeight;
 
+          // “虚拟”元素撑开了滚动条
           this.scrollDummy.style.width = `${this.totalWidth}px`;
           this.scrollDummy.style.height = `${this.totalHeight}px`;
         }
@@ -640,16 +672,19 @@
 
         /** 9. 核心渲染循环 */
         render() {
+          // 1. 更新渲染范围
           this.updateVirtualRanges();
-          this.taskPositions.clear(); // 清空缓存
 
-          // 渲染所有图层
+          // 2. **连线修复核心**: 预先计算 *所有* 任务的坐标
+          this.calculateAllTaskPositions();
+
+          // 3. 渲染所有图层
           this.renderHeader();
-          this.renderSidebar();
+
+          // 4. **渲染虚拟化**: 只 *绘制* 可见的行
           this.renderMain();
 
-          // SVG 依赖必须在 Main (Bara) 渲染完之后，
-          // 因为 renderMain 会填充 taskPositions
+          // 5. 渲染连线 (现在可以安全地从 `taskPositions` 中读取)
           this.renderDependencies();
         }
 
@@ -768,7 +803,6 @@
 
           // 绘制最后一个剩余的上层文本
           if (lastUpperText) {
-            // 估算结束位置
             const endX = Math.max(this.dateToX(currentDate), this.scrollLeft + this.viewportWidth);
             const lastWidth = endX - lastUpperTextX;
             ctx.fillStyle = '#333';
@@ -802,34 +836,52 @@
           }
         }
 
-        /** 9b. 渲染侧边栏 (虚拟) */
-        renderSidebar() {
-          const { start, end } = this.visibleRowRange;
-          let html = '';
+        /**
+         * **连线修复核心**
+         * 预先计算 *所有* 任务的坐标
+         * 这确保 `renderDependencies` 总是能找到 `toPos` 和 `fromPos`
+         */
+        calculateAllTaskPositions() {
+          this.taskPositions.clear(); // 清空缓存
 
-          for (let i = start; i < end; i++) {
+          // 迭代 *所有* 行, 而不是 visibleRowRange
+          for (let i = 0; i < this.data.rows.length; i++) {
             const row = this.data.rows[i];
-            html += `<div class="gantt-sidebar-row" style="height: ${
-              this.config.rowHeight
-            }px; position: absolute; top: ${i * this.config.rowHeight}px; width: 100%;">
-                        ${row.name}
-                    </div>`;
+            if (!row) continue;
+
+            const y = i * this.config.rowHeight;
+
+            row.tasks.forEach(task => {
+              const pStart = new Date(task.planStart);
+              const pEnd = new Date(task.planEnd);
+              const x_plan_start = this.dateToX(pStart);
+              const x_plan_end = this.dateToX(DateUtils.addDays(pEnd, 1));
+
+              let x_actual_start = null;
+              let x_actual_end = null;
+
+              if (task.actualStart && task.actualEnd) {
+                const aStart = new Date(task.actualStart);
+                const aEnd = new Date(task.actualEnd);
+                x_actual_start = this.dateToX(aStart);
+                x_actual_end = this.dateToX(DateUtils.addDays(aEnd, 1));
+              }
+
+              // 无论是否在水平视口，都存储位置
+              this.taskPositions.set(task.id, {
+                x_plan_start,
+                x_plan_end,
+                x_actual_start,
+                x_actual_end,
+                // ** 连线修复: 统一使用中心Y坐标 **
+                y: y + this.config.rowHeight * 0.5, // 垂直中心
+                row: i
+              });
+            });
           }
-
-          this.sidebarContent.innerHTML = html;
-
-          // 关键：侧边栏的 Y 轴平移
-          // 我们不平移，而是平移 sidebarContent 来同步滚动
-          // 不，我们应该让 sidebar-content-wrapper 滚动
-          // 不，container 是唯一滚动条。
-          // 最终方案：gantt-sidebar-content 绝对定位，通过 transform 同步
-          this.sidebarContent.style.transform = `translateY(${-this.scrollTop}px)`;
-
-          // 调整 sidebar-content 的总高度，以便内容溢出时计算正确
-          // (不需要，因为我们是绝对定位行)
         }
 
-        /** 9c. 渲染主图表 (虚拟) */
+        /** 9c. 渲染主图表 (渲染虚拟化) */
         renderMain() {
           const ctx = this.mainCtx;
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -845,32 +897,36 @@
           // 2. 绘制今天
           this.drawToday(ctx);
 
-          // 3. 绘制任务条
+          // 3. 绘制任务条 (渲染虚拟化)
           ctx.textBaseline = 'middle';
           ctx.font = '12px Arial';
 
+          // 只循环 `startRow` 到 `endRow`
           for (let i = startRow; i < endRow; i++) {
             const row = this.data.rows[i];
-            if (!row) continue; // 健壮性检查
+            if (!row) continue;
 
             const y = i * this.config.rowHeight;
 
             row.tasks.forEach(task => {
-              // 水平虚拟化检查
-              const pStart = new Date(task.planStart);
-              const pEnd = new Date(task.planEnd);
-              if (pEnd < startDate || pStart > endDate) {
-                // 任务完全在视口之外，但仍需检查实际时间
-                if (!task.actualStart || !task.actualEnd) {
-                  return; // 确实在视口外
-                }
-                const aStart = new Date(task.actualStart);
-                const aEnd = new Date(task.actualEnd);
-                if (aEnd < startDate || aStart > endDate) {
-                  return; // 实际时间也在视口外
+              // 从预先计算好的位置缓存中获取坐标
+              const pos = this.taskPositions.get(task.id);
+              if (!pos) return;
+
+              // 水平虚拟化检查：
+              // 检查任务是否在水平视口内
+              if (pos.x_plan_end < this.scrollLeft || pos.x_plan_start > this.scrollLeft + this.viewportWidth) {
+                if (
+                  !pos.x_actual_start ||
+                  pos.x_actual_end < this.scrollLeft ||
+                  pos.x_actual_start > this.scrollLeft + this.viewportWidth
+                ) {
+                  return; // 任务完全在水平视口之外，跳过绘制
                 }
               }
-              this.drawTask(ctx, task, y, i);
+
+              // 任务在视口内，绘制它
+              this.drawTask(ctx, task, y, pos);
             });
           }
 
@@ -904,7 +960,7 @@
               switch (this.config.viewMode) {
                 case 'Year':
                   showLine = currentDate.getMonth() === 0; // 每年
-                  nextDate = DateUtils.addMonths(currentDate, 1); // 检查点设为月
+                  nextDate = DateUtils.addMonths(currentDate, 1);
                   break;
                 case 'Month':
                   showLine = currentDate.getDate() === 1; // 每月
@@ -946,12 +1002,16 @@
           ctx.stroke();
         }
 
-        drawTask(ctx, task, y, rowIndex) {
-          const pStart = new Date(task.planStart);
-          const pEnd = new Date(task.planEnd);
-          const x_plan_start = this.dateToX(pStart);
-          // +1天
-          const x_plan_end = this.dateToX(DateUtils.addDays(pEnd, 1));
+        /**
+         * `drawTask` 只负责绘制
+         * @param {CanvasRenderingContext2D} ctx
+         * @param {GanttTask} task
+         * @param {number} y - 任务行的绝对 Y 坐标 (top)
+         * @param {object} pos - 预先计算好的坐标
+         */
+        drawTask(ctx, task, y, pos) {
+          const { x_plan_start, x_plan_end, x_actual_start, x_actual_end } = pos;
+
           const width = x_plan_end - x_plan_start;
 
           const taskY = y + this.config.rowHeight * 0.15;
@@ -960,23 +1020,11 @@
           // 样式
           const styles = this.getTaskStyles(task);
 
-          let x_actual_start = null;
-          let x_actual_end = null;
-
           // 1. 绘制实际 (背景)
-          // 关键修复：无论是否显示，都要计算坐标，以便依赖连线逻辑能正确获取
-          if (task.actualStart && task.actualEnd) {
-            const aStart = new Date(task.actualStart);
-            const aEnd = new Date(task.actualEnd);
-            x_actual_start = this.dateToX(aStart);
-            x_actual_end = this.dateToX(DateUtils.addDays(aEnd, 1));
-
-            // 仅在配置开启时才真的绘制
-            if (this.config.showActual) {
-              const aWidth = x_actual_end - x_actual_start;
-              ctx.fillStyle = styles.actualBg;
-              ctx.fillRect(x_actual_start, taskY, aWidth, taskHeight);
-            }
+          if (this.config.showActual && x_actual_start !== null && x_actual_end !== null) {
+            const aWidth = x_actual_end - x_actual_start;
+            ctx.fillStyle = styles.actualBg;
+            ctx.fillRect(x_actual_start, taskY, aWidth, taskHeight);
           }
 
           // 2. 绘制计划 (顶部横线)
@@ -984,7 +1032,7 @@
             ctx.strokeStyle = styles.planBorder;
             ctx.lineWidth = 3; // 使用稍粗的线条
             ctx.beginPath();
-            ctx.moveTo(x_plan_start, taskY); // 顶部左侧
+            ctx.moveTo(x_plan_start, taskY); // 顶部左侧 (15% 高度)
             ctx.lineTo(x_plan_start + width, taskY); // 顶部右侧
             ctx.stroke();
           }
@@ -1001,16 +1049,6 @@
             ctx.textAlign = 'left';
             ctx.fillText(task.rightRemark, x_plan_end + 8, textY);
           }
-
-          // 4. 存储位置 (用于 SVG 连线)
-          this.taskPositions.set(task.id, {
-            x_plan_start,
-            x_plan_end,
-            x_actual_start,
-            x_actual_end,
-            y: y + this.config.rowHeight / 2,
-            row: rowIndex
-          });
         }
 
         getTaskStyles(task) {
@@ -1040,7 +1078,7 @@
           return styles;
         }
 
-        /** 9d. 渲染 SVG 依赖 */
+        /** 9d. 渲染 SVG 依赖 (逻辑已修复) */
         renderDependencies() {
           // 平移 SVG <g> 组来同步滚动
           this.svgLinksGroup.setAttribute('transform', `translate(${-this.scrollLeft}, ${-this.scrollTop})`);
@@ -1048,75 +1086,62 @@
           // 清空旧连线
           this.svgLinksGroup.innerHTML = '';
 
-          // 渲染视口内的连线
-          for (let i = this.visibleRowRange.start; i < this.visibleRowRange.end; i++) {
-            const row = this.data.rows[i];
-            row.tasks.forEach(task => {
-              if (!task.dependencies || task.dependencies.length === 0) return;
+          // 迭代 *所有* 任务
+          this.taskMap.forEach(({ task }) => {
+            if (!task.dependencies || task.dependencies.length === 0) return;
 
-              // 目标任务 (必须在视口内)
-              const toPos = this.taskPositions.get(task.id);
-              if (!toPos) return;
+            // 目标任务
+            const toPos = this.taskPositions.get(task.id);
 
-              task.dependencies.forEach(depId => {
-                // 源任务 (可能在视口外)
-                let fromPos = this.taskPositions.get(depId);
-                if (!fromPos) {
-                  // 源任务不在视口内，从 map 中查找并计算
-                  const fromTaskData = this.taskMap.get(depId);
-                  if (!fromTaskData) return;
+            task.dependencies.forEach(depId => {
+              // 源任务
+              const fromPos = this.taskPositions.get(depId);
 
-                  const pStart = new Date(fromTaskData.task.planStart);
-                  const pEnd = new Date(fromTaskData.task.planEnd);
-                  const x_plan_start = this.dateToX(pStart);
-                  const x_plan_end = this.dateToX(DateUtils.addDays(pEnd, 1));
+              // 检查源和目标是否都已计算坐标
+              if (!fromPos || !toPos) {
+                return; // 依赖项在 map 中不存在，跳过
+              }
 
-                  let x_actual_start = null;
-                  let x_actual_end = null;
+              // ** 渲染性能优化 **
+              // 只绘制在垂直视口附近的连线
+              const yMargin = this.config.rowHeight * 5; // 5行缓冲
+              const vpTop = this.scrollTop - yMargin;
+              const vpBottom = this.scrollTop + this.viewportHeight + yMargin;
 
-                  // 关键修复：移除 this.config.showActual 检查，无条件计算坐标
-                  if (fromTaskData.task.actualStart && fromTaskData.task.actualEnd) {
-                    const aStart = new Date(fromTaskData.task.actualStart);
-                    const aEnd = new Date(fromTaskData.task.actualEnd);
-                    x_actual_start = this.dateToX(aStart);
-                    x_actual_end = this.dateToX(DateUtils.addDays(aEnd, 1));
-                  }
+              if ((fromPos.y < vpTop && toPos.y < vpTop) || (fromPos.y > vpBottom && toPos.y > vpBottom)) {
+                return; // 连线两端都在垂直视口之外，跳过绘制
+              }
 
-                  fromPos = {
-                    x_plan_start,
-                    x_plan_end,
-                    x_actual_start,
-                    x_actual_end,
-                    y: fromTaskData.row * this.config.rowHeight + this.config.rowHeight / 2,
-                    row: fromTaskData.row
-                  };
-                }
-
-                this.drawDependencyLine(fromPos, toPos);
-              });
+              // 绘制连线
+              this.drawDependencyLine(fromPos, toPos);
             });
-          }
+          });
         }
 
+        /**
+         * **连线修复: 移除 y_plan/y_actual 逻辑，统一使用中心 Y**
+         */
         drawDependencyLine(from, to) {
           // 起点：取 计划结束 和 实际结束 中最晚的
           const fromX = Math.max(from.x_plan_end, from.x_actual_end || from.x_plan_end);
+          // ** 修复: 统一使用中心 Y **
           const fromY = from.y;
 
           // 终点：取 计划开始 和 实际开始 中最早的
           const toX = Math.min(to.x_plan_start, to.x_actual_start || to.x_plan_start);
+          // ** 修复: 统一使用中心 Y **
           const toY = to.y;
 
-          // 如果终点在起点之前，不绘制（或绘制反向，这里先不绘制）
-          if (toX <= fromX) return;
+          // 如果终点在起点之前，不绘制
+          if (toX <= fromX + 1) return; // 增加 1px 缓冲
 
           const curve = 20;
 
-          let pathD = `M ${fromX} ${fromY} `;
-          pathD += `H ${fromX + curve} `;
-          pathD += `V ${toY} `;
-          pathD += `H ${toX - curve} `;
-          pathD += `L ${toX} ${toY}`;
+          let pathD = `M ${fromX} ${fromY} `; // 起点
+          pathD += `H ${fromX + curve} `; // 向右画
+          pathD += `V ${toY} `; // 垂直移动
+          pathD += `H ${toX - curve} `; // 水平移动
+          pathD += `L ${toX} ${toY}`; // 连接到终点 (箭头)
 
           const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           path.setAttribute('d', pathD);
@@ -1143,7 +1168,6 @@
 
           const row = this.data.rows[rowIndex];
           if (!row) {
-            // 健壮性检查
             this.handleMouseLeave();
             return;
           }
@@ -1227,7 +1251,6 @@
 
         handleMouseLeave() {
           this.tooltip.style.display = 'none';
-          // 重置位置，避免下次显示时闪烁
           this.tooltip.style.left = '-1000px';
           this.tooltip.style.top = '-1000px';
         }
@@ -1349,9 +1372,9 @@
                   name: `任务 ${i}.2`,
                   planStart: '2025-12-12',
                   planEnd: '2025-12-20',
-                  dependencies: [`vt_${i}_1`],
+                  dependencies: [`vt_${i}_1`, i === 499 ? 't6' : `vt_${i - 1}_1`],
                   styleClass: 'demo1-task'
-                }
+                } // 最后一个依赖 t6
               ]
             }))
           ]
@@ -1391,7 +1414,7 @@
                   styleClass: 'demo2-completed',
                   planStart: '2025-11-13',
                   planEnd: '2025-11-16'
-                } // plan 也需要，否则 tooltip 找不到
+                }
               ]
             },
             {
@@ -1483,10 +1506,15 @@
         };
       }
 
-      /** 启动应用 */
+      /** 启动应用 (已重构) */
       document.addEventListener('DOMContentLoaded', () => {
-        const container = document.getElementById('gantt-chart-container');
-        if (!container) return;
+        const ganttContainer = document.getElementById('gantt-chart-container');
+        if (!ganttContainer) return;
+
+        const extTableHeader = document.getElementById('external-table-header');
+        const extTableScroll = document.getElementById('external-table-scroll');
+        const extTableContent = document.getElementById('external-table-content');
+        const extTableDummy = document.getElementById('external-table-dummy');
 
         // 默认配置
         const defaultConfig = {
@@ -1499,47 +1527,96 @@
         };
 
         // 初始化甘特图
-        const chart = new GanttChart(container, getDemo1Data(), {
+        const chart = new GanttChart(ganttContainer, getDemo1Data(), {
           ...defaultConfig,
           showLeftRemark: true,
           showRightRemark: true
         });
+
+        let currentChartData = getDemo1Data();
+        let currentConfig = chart.config;
+
+        /**
+         * 渲染外部表格 (渲染虚拟化)
+         */
+        function renderExternalSidebar() {
+          const data = currentChartData;
+          const config = currentConfig;
+
+          // 1. 设置头部高度 (CSS 已经处理了)
+          // extTableHeader.style.height = `${config.headerHeight}px`;
+
+          // 2. 设置虚拟滚动条总高度
+          const totalHeight = data.rows.length * config.rowHeight;
+          extTableDummy.style.height = `${totalHeight}px`;
+
+          // 3. 计算可见行 (渲染虚拟化)
+          const scrollTop = extTableScroll.scrollTop;
+          const viewportHeight = extTableScroll.clientHeight;
+          const start = Math.max(0, Math.floor(scrollTop / config.rowHeight));
+          const end = Math.min(data.rows.length, Math.ceil((scrollTop + viewportHeight) / config.rowHeight));
+
+          // 4. 生成虚拟 DOM
+          let html = '';
+          for (let i = start; i < end; i++) {
+            const row = data.rows[i];
+            if (!row) continue;
+            html += `<div class="external-sidebar-row" style="height: ${config.rowHeight}px; top: ${
+              i * config.rowHeight
+            }px;">
+                        ${row.name}
+                    </div>`;
+          }
+          extTableContent.innerHTML = html;
+        }
 
         const demo1Btn = document.getElementById('btn-demo1');
         const demo2Btn = document.getElementById('btn-demo2');
 
         // 切换到场景1
         function loadDemo1() {
-          chart.setData(getDemo1Data());
-          chart.updateConfig({
+          currentChartData = getDemo1Data();
+          chart.setData(currentChartData);
+
+          currentConfig = {
+            ...chart.config,
             showLeftRemark: true,
             showRightRemark: true,
             showActual: true,
             showPlan: true,
             rowHeight: 50
-          });
+          };
+          chart.updateConfig(currentConfig);
+
           demo1Btn.classList.replace('bg-gray-100', 'bg-blue-600');
           demo1Btn.classList.replace('text-gray-700', 'text-white');
           demo2Btn.classList.replace('bg-blue-600', 'bg-gray-100');
           demo2Btn.classList.replace('text-white', 'text-gray-700');
-          document.getElementById('gantt-sidebar-header').textContent = '项目/任务';
+          extTableHeader.textContent = '项目/任务 (外部)';
+          renderExternalSidebar();
         }
 
         // 切换到场景2
         function loadDemo2() {
-          chart.setData(getDemo2Data());
-          chart.updateConfig({
+          currentChartData = getDemo2Data();
+          chart.setData(currentChartData);
+
+          currentConfig = {
+            ...chart.config,
             showLeftRemark: false,
             showRightRemark: false,
             showActual: true,
             showPlan: true,
             rowHeight: 60
-          });
+          };
+          chart.updateConfig(currentConfig);
+
           demo2Btn.classList.replace('bg-gray-100', 'bg-blue-600');
           demo2Btn.classList.replace('text-gray-700', 'text-white');
           demo1Btn.classList.replace('bg-blue-600', 'bg-gray-100');
           demo1Btn.classList.replace('text-white', 'text-gray-700');
-          document.getElementById('gantt-sidebar-header').textContent = '人员/资源';
+          extTableHeader.textContent = '人员/资源 (外部)';
+          renderExternalSidebar();
         }
 
         demo1Btn.addEventListener('click', loadDemo1);
@@ -1558,7 +1635,44 @@
             });
             btn.classList.add('bg-blue-500', 'text-white');
             btn.classList.remove('bg-gray-100', 'text-gray-700');
+
+            currentConfig.viewMode = chart.config.viewMode;
+            renderExternalSidebar();
           });
+        });
+
+        // ** 双向滚动同步 **
+        let isGanttScrolling = false;
+        let isTableScrolling = false;
+
+        // 1. 甘特图滚动 -> 滚动外部表格
+        ganttContainer.addEventListener('ganttscroll', e => {
+          if (isTableScrolling) return;
+
+          isGanttScrolling = true;
+          extTableScroll.scrollTop = e.detail.scrollTop;
+
+          renderExternalSidebar();
+
+          // 使用 setTimeout 0 释放锁
+          setTimeout(() => {
+            isGanttScrolling = false;
+          }, 0);
+        });
+
+        // 2. 外部表格滚动 -> 滚动甘特图
+        extTableScroll.addEventListener('scroll', () => {
+          if (isGanttScrolling) return;
+
+          isTableScrolling = true;
+          chart.setScrollTop(extTableScroll.scrollTop);
+
+          renderExternalSidebar();
+
+          // 使用 setTimeout 0 释放锁
+          setTimeout(() => {
+            isTableScrolling = false;
+          }, 0);
         });
 
         // 默认加载
