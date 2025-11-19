@@ -1200,31 +1200,31 @@
                   actualStart: '2025-11-19',
                   actualEnd: '2025-11-20',
                   styleClass: 'demo2-leave'
-                },
-                ...Array.from({ length: 500 }, (_, i) => ({
-                  id: `user_virt_${i}`,
-                  name: `员工 ${i + 4}`,
-                  tasks: [
-                    {
-                      id: `uvt_${i}_1`,
-                      name: `常规任务 ${i}`,
-                      type: 'task',
-                      planStart: '2025-11-01',
-                      planEnd: '2025-11-30',
-                      styleClass: 'demo2-plan'
-                    },
-                    {
-                      id: `uvt_${i}_2`,
-                      name: `休假 ${i}`,
-                      type: 'leave',
-                      actualStart: '2025-12-05',
-                      actualEnd: '2025-12-08',
-                      styleClass: 'demo2-leave'
-                    }
-                  ]
-                }))
+                }
               ]
-            }
+            },
+            ...Array.from({ length: 500 }, (_, i) => ({
+              id: `user_virt_${i}`,
+              name: `员工 ${i + 4}`,
+              tasks: [
+                {
+                  id: `uvt_${i}_1`,
+                  name: `常规任务 ${i}`,
+                  type: 'task',
+                  planStart: '2025-11-01',
+                  planEnd: '2025-11-30',
+                  styleClass: 'demo2-plan'
+                },
+                {
+                  id: `uvt_${i}_2`,
+                  name: `休假 ${i}`,
+                  type: 'leave',
+                  actualStart: '2025-12-05',
+                  actualEnd: '2025-12-08',
+                  styleClass: 'demo2-leave'
+                }
+              ]
+            }))
           ]
         };
       }
