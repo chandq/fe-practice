@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <canvas id="canvas" width="500" height="500"></canvas>
+
+    <script>
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+
+      ctx.lineWidth = 16;
+      ctx.strokeStyle = 'red';
+
+      // 先填充后描边
+      ctx.beginPath();
+      ctx.rect(25, 25, 100, 100);
+      ctx.fill();
+      ctx.stroke();
+
+      // 先描边后填充
+      ctx.beginPath();
+      ctx.rect(175, 25, 100, 100);
+      ctx.stroke();
+      ctx.fill();
+    </script>
+  </body>
+</html>

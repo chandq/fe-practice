@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Canvas填充与描边顺序动画演示</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+        color: #fff;
+        min-height: 100vh;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+        max-width: 800px;
+      }
+
+      h1 {
+        font-size: 2.8rem;
+        margin-bottom: 15px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .subtitle {
+        font-size: 1.2rem;
+        margin-bottom: 20px;
+        opacity: 0.9;
+      }
+
+      .container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 30px;
+        max-width: 1200px;
+        margin-bottom: 30px;
+      }
+
+      .canvas-container {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        width: 500px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .canvas-title {
+        font-size: 1.5rem;
+        margin-bottom: 15px;
+        text-align: center;
+        font-weight: 600;
+      }
+
+      canvas {
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.2);
+      }
+
+      .controls {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        max-width: 800px;
+        width: 100%;
+        margin-bottom: 30px;
+      }
+
+      .control-group {
+        margin-bottom: 20px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        font-size: 1.1rem;
+      }
+
+      input[type='range'] {
+        width: 100%;
+        height: 10px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.2);
+        outline: none;
+        -webkit-appearance: none;
+      }
+
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: #ff8c00;
+        cursor: pointer;
+      }
+
+      .value-display {
+        display: inline-block;
+        width: 40px;
+        text-align: center;
+        font-weight: bold;
+        margin-left: 10px;
+      }
+
+      .button-group {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      button {
+        background: linear-gradient(to right, #ff8c00, #ff0080);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 50px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      .explanation {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        max-width: 800px;
+        width: 100%;
+      }
+
+      h2 {
+        margin-bottom: 15px;
+        font-size: 1.8rem;
+        text-align: center;
+      }
+
+      p {
+        margin-bottom: 15px;
+        line-height: 1.6;
+      }
+
+      .highlight {
+        color: #ff8c00;
+        font-weight: bold;
+      }
+
+      .animation-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 15px;
+        font-size: 1.1rem;
+      }
+
+      .dot {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ff8c00;
+        margin: 0 5px;
+        animation: pulse 1.5s infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.5);
+          opacity: 0.7;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+      .code-snippet {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 15px;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+        margin: 15px 0;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>Canvas填充与描边顺序动画演示</h1>
+      <p class="subtitle">通过动画直观展示填充和描边顺序不同所产生的视觉效果差异</p>
+    </div>
+
+    <div class="container">
+      <div class="canvas-container">
+        <h2 class="canvas-title">先填充后描边</h2>
+        <canvas id="canvas1" width="450" height="300"></canvas>
+        <div class="animation-indicator">
+          <span class="dot"></span>
+          <span>动画中 - 描边覆盖在填充之上</span>
+          <span class="dot"></span>
+        </div>
+      </div>
+
+      <div class="canvas-container">
+        <h2 class="canvas-title">先描边后填充</h2>
+        <canvas id="canvas2" width="450" height="300"></canvas>
+        <div class="animation-indicator">
+          <span class="dot"></span>
+          <span>动画中 - 填充覆盖部分描边</span>
+          <span class="dot"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label for="lineWidth">
+          描边宽度:
+          <span id="lineWidthValue" class="value-display">15</span>
+        </label>
+        <input type="range" id="lineWidth" min="1" max="30" value="15" />
+      </div>
+
+      <div class="control-group">
+        <label for="animationSpeed">
+          动画速度:
+          <span id="speedValue" class="value-display">5</span>
+        </label>
+        <input type="range" id="animationSpeed" min="1" max="10" value="5" />
+      </div>
+
+      <div class="button-group">
+        <button id="startBtn">开始动画</button>
+        <button id="pauseBtn">暂停动画</button>
+        <button id="shapeBtn">切换形状</button>
+        <button id="resetBtn">重置</button>
+      </div>
+    </div>
+
+    <div class="explanation">
+      <h2>为什么填充与描边顺序会产生不同结果？</h2>
+      <p>Canvas中的填充和描边操作是在同一个路径上执行的：</p>
+
+      <div class="code-snippet">
+        // 先填充后描边
+        <br />
+        ctx.beginPath();
+        <br />
+        ctx.rect(50, 50, 200, 100);
+        <br />
+        ctx.fill(); // 先执行填充
+        <br />
+        ctx.stroke(); // 后执行描边 - 描边会覆盖在填充之上
+      </div>
+
+      <div class="code-snippet">
+        // 先描边后填充
+        <br />
+        ctx.beginPath();
+        <br />
+        ctx.rect(50, 50, 200, 100);
+        <br />
+        ctx.stroke(); // 先执行描边
+        <br />
+        ctx.fill(); // 后执行填充 - 填充会覆盖部分描边
+      </div>
+
+      <p>
+        <span class="highlight">关键点：</span>
+        描边是以路径为中心向两侧延伸的。当先填充后描边时，描边完全可见；当先描边后填充时，路径内部的描边部分会被填充覆盖。
+      </p>
+
+      <p>调整描边宽度可以更清楚地看到这种差异。描边宽度越大，两种顺序产生的视觉效果差异越明显。</p>
+    </div>
+
+    <script>
+      // 获取Canvas元素和上下文
+      const canvas1 = document.getElementById('canvas1');
+      const canvas2 = document.getElementById('canvas2');
+      const ctx1 = canvas1.getContext('2d');
+      const ctx2 = canvas2.getContext('2d');
+
+      // 获取控制元素
+      const lineWidthSlider = document.getElementById('lineWidth');
+      const lineWidthValue = document.getElementById('lineWidthValue');
+      const animationSpeedSlider = document.getElementById('animationSpeed');
+      const speedValue = document.getElementById('speedValue');
+      const startBtn = document.getElementById('startBtn');
+      const pauseBtn = document.getElementById('pauseBtn');
+      const shapeBtn = document.getElementById('shapeBtn');
+      const resetBtn = document.getElementById('resetBtn');
+
+      // 动画状态
+      let animationId = null;
+      let isAnimating = true;
+      let angle = 0;
+      let scale = 1;
+      let scaleDirection = 1;
+
+      // 初始值
+      let lineWidth = 15;
+      let animationSpeed = 5;
+      let shapeType = 'rect';
+      let shapes = ['rect', 'circle', 'triangle', 'star'];
+      let shapeIndex = 0;
+
+      // 绘制函数
+      function draw() {
+        // 清除画布
+        ctx1.clearRect(0, 0, canvas1.width, canvas1.height);
+        ctx2.clearRect(0, 0, canvas2.width, canvas2.height);
+
+        // 更新动画参数
+        angle += 0.02 * animationSpeed;
+        scale += 0.01 * scaleDirection * animationSpeed;
+
+        if (scale > 1.3) scaleDirection = -1;
+        if (scale < 0.7) scaleDirection = 1;
+
+        // 设置样式
+        ctx1.fillStyle = 'rgba(52, 152, 219, 0.7)'; // 半透明蓝色
+        ctx1.strokeStyle = 'rgba(231, 76, 60, 0.9)'; // 半透明红色
+        ctx1.lineWidth = lineWidth;
+        ctx1.setLineDash([]);
+
+        ctx2.fillStyle = 'rgba(52, 152, 219, 0.7)'; // 半透明蓝色
+        ctx2.strokeStyle = 'rgba(231, 76, 60, 0.9)'; // 半透明红色
+        ctx2.lineWidth = lineWidth;
+        ctx2.setLineDash([]);
+
+        // 绘制第一个Canvas：先填充后描边
+        ctx1.save();
+        ctx1.translate(canvas1.width / 2, canvas1.height / 2);
+        ctx1.rotate(angle);
+        ctx1.scale(scale, scale);
+
+        ctx1.beginPath();
+        drawShape(ctx1, 0, 0, 100);
+        ctx1.fill(); // 先填充
+        ctx1.stroke(); // 后描边
+
+        ctx1.restore();
+
+        // 绘制第二个Canvas：先描边后填充
+        ctx2.save();
+        ctx2.translate(canvas2.width / 2, canvas2.height / 2);
+        ctx2.rotate(-angle);
+        ctx2.scale(scale, scale);
+
+        ctx2.beginPath();
+        drawShape(ctx2, 0, 0, 100);
+        ctx2.stroke(); // 先描边
+        ctx2.fill(); // 后填充
+
+        ctx2.restore();
+
+        // 添加一些视觉效果
+        addVisualEffects(ctx1);
+        addVisualEffects(ctx2);
+      }
+
+      // 绘制不同形状的函数
+      function drawShape(ctx, x, y, size) {
+        switch (shapeType) {
+          case 'rect':
+            ctx.rect(x - size / 2, y - size / 2, size, size);
+            break;
+          case 'circle':
+            ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+            break;
+          case 'triangle':
+            drawTriangle(ctx, x, y, size);
+            break;
+          case 'star':
+            drawStar(ctx, x, y, 5, size / 2, size / 4);
+            break;
+        }
+      }
+
+      // 绘制星形
+      function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+        let rot = (Math.PI / 2) * 3;
+        let x = cx;
+        let y = cy;
+        let step = Math.PI / spikes;
+
+        ctx.moveTo(cx, cy - outerRadius);
+        for (let i = 0; i < spikes; i++) {
+          x = cx + Math.cos(rot) * outerRadius;
+          y = cy + Math.sin(rot) * outerRadius;
+          ctx.lineTo(x, y);
+          rot += step;
+
+          x = cx + Math.cos(rot) * innerRadius;
+          y = cy + Math.sin(rot) * innerRadius;
+          ctx.lineTo(x, y);
+          rot += step;
+        }
+        ctx.lineTo(cx, cy - outerRadius);
+        ctx.closePath();
+      }
+
+      // 绘制三角形
+      function drawTriangle(ctx, x, y, size) {
+        const height = (Math.sqrt(3) / 2) * size;
+        ctx.moveTo(x, y - height / 2);
+        ctx.lineTo(x - size / 2, y + height / 2);
+        ctx.lineTo(x + size / 2, y + height / 2);
+        ctx.closePath();
+      }
+
+      // 添加视觉效果
+      function addVisualEffects(ctx) {
+        // 添加一些粒子效果
+        for (let i = 0; i < 5; i++) {
+          const x = Math.random() * ctx.canvas.width;
+          const y = Math.random() * ctx.canvas.height;
+          const radius = Math.random() * 3 + 1;
+
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+          ctx.fill();
+        }
+      }
+
+      // 动画循环
+      function animate() {
+        draw();
+        if (isAnimating) {
+          animationId = requestAnimationFrame(animate);
+        }
+      }
+
+      // 事件监听
+      lineWidthSlider.addEventListener('input', function () {
+        lineWidth = parseInt(this.value);
+        lineWidthValue.textContent = lineWidth;
+      });
+
+      animationSpeedSlider.addEventListener('input', function () {
+        animationSpeed = parseInt(this.value);
+        speedValue.textContent = animationSpeed;
+      });
+
+      startBtn.addEventListener('click', function () {
+        if (!isAnimating) {
+          isAnimating = true;
+          animate();
+        }
+      });
+
+      pauseBtn.addEventListener('click', function () {
+        isAnimating = false;
+        if (animationId) {
+          cancelAnimationFrame(animationId);
+        }
+      });
+
+      shapeBtn.addEventListener('click', function () {
+        shapeIndex = (shapeIndex + 1) % shapes.length;
+        shapeType = shapes[shapeIndex];
+      });
+
+      resetBtn.addEventListener('click', function () {
+        lineWidthSlider.value = 15;
+        lineWidth = 15;
+        lineWidthValue.textContent = lineWidth;
+
+        animationSpeedSlider.value = 5;
+        animationSpeed = 5;
+        speedValue.textContent = animationSpeed;
+
+        shapeType = 'rect';
+        shapeIndex = 0;
+
+        angle = 0;
+        scale = 1;
+
+        if (!isAnimating) {
+          draw();
+        }
+      });
+
+      // 初始绘制和启动动画
+      animate();
+    </script>
+  </body>
+</html>

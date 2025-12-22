@@ -683,6 +683,7 @@
           ctx.lineWidth = 1;
           ctx.beginPath(); // 批量路径绘制以提高性能
 
+          console.log('this.taskPositions', this.taskPositions, this.taskMap);
           this.taskMap.forEach(({ task }) => {
             if (!task.dependencies || task.dependencies.length === 0) return;
             const toPos = this.taskPositions.get(task.id);
@@ -700,9 +701,13 @@
               const toY = toPos.y;
 
               // 避免连线重叠或倒置
-              if (toX <= fromX + 5) return;
+              // if (toX <= fromX + 5) return;
 
               const curve = 10; // 连线折角距离
+
+              if (['t3', 't5', 't6'].includes(depId)) {
+                console.log(depId, fromPos, toPos, task);
+              }
 
               // 绘制简化的 S 型折线：右-下-左
               ctx.moveTo(fromX, fromY);

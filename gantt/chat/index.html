@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <div id="demo" style="width: 100%; height: 700px"></div>
+    <script type="module">
+      import { createDemo } from './gantt.js';
+      const g = createDemo(document.getElementById('demo'));
+      // g 是 Gantt 实例，暴露了 setData / setMode / setConfig 等 API
+    </script>
+  </body>
+</html>
