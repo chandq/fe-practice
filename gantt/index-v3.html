@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>高性能虚拟化甘特图 (Canvas+SVG)</title>
+    <title>高性能虚拟化甘特图 (Canva2324s+SVG)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       body {
@@ -11,7 +11,6 @@
         background-color: #f4f7f6;
         color: #333;
         /* 防止页面滚动条干扰组件滚动条 */
-        overflow: hidden;
       }
 
       /* 顶层容器 */
@@ -34,7 +33,8 @@
         overflow: hidden;
         border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        border: 1px solid #e0e0e0;
+        border: 2px solid #e0e0e0;
+        background: gray;
       }
 
       /* 外部表格 (解耦) */
@@ -130,8 +130,8 @@
 
       /* 主内容 Canvas (Sticky) */
       .gantt-main-canvas {
-        position: sticky;
-        top: 60px; /* 头部高度 */
+        position: sticky1;
+        top: 50px; /* 头部高度 */
         left: 0;
         z-index: 1;
       }
@@ -180,8 +180,8 @@
     <div class="gantt-app-container">
       <!-- 控制器 -->
       <div class="gantt-controls p-4 bg-white rounded-lg shadow-sm flex flex-wrap gap-2 items-center">
-        <span class="font-semibold mr-4">切换视图:</span>
-        <div class="flex flex-wrap gap-2">
+        <span class="font-semibold mr-42">切换视23图:</span>
+        <div class="flex flex-wrap gap-22">
           <button
             id="btn-demo1"
             class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
