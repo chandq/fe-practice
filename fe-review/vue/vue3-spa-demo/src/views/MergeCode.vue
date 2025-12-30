@@ -51,6 +51,31 @@ let decorationIds = []
 let viewZoneIds = []
 let internalChange = false
 
+// 语言映射表：涵盖绝大多数开发场景
+const EXT_MAP = {
+  js: 'javascript',
+  ts: 'typescript',
+  py: 'python',
+  java: 'java',
+  cpp: 'cpp',
+  cc: 'cpp',
+  c: 'c',
+  go: 'go',
+  html: 'html',
+  css: 'css',
+  json: 'json',
+  md: 'markdown',
+  sql: 'sql',
+  yaml: 'yaml',
+  yml: 'yaml',
+  sh: 'shell',
+  php: 'php',
+  cs: 'csharp',
+  rs: 'rust'
+}
+const fileName = ref('merge.html')
+const currentLangId = ref('javascript')
+
 const INITIAL_CODE = `<<<<<<< HEAD
 function connect() {
   return "https://localhost:8080";
@@ -68,33 +93,103 @@ const VERSION = "2.0.5-stable";
 >>>>>>> main`
 
 onMounted(() => {
+  // 屏蔽所有语言服务
+  const allLangs = Object.values(EXT_MAP)
   const cfg = {
-    // theme: 'vs-dark',
-    language: 'javascript',
-    automaticLayout: true,
-    minimap: { enabled: false },
-    scrollBeyondLastLine: false,
-    fontSize: 13,
-    contextmenu: false,
-    lightbulb: { enabled: false },
-    quickSuggestions: false,
-    snippetSuggestions: 'none',
-    wordBasedSuggestions: false,
-    links: false,
-    occurrencesHighlight: false,
-    renderLineHighlight: 'all'
-  }
-
-  // 1. 强制屏蔽所有 JS 服务，消除所有 Missing Handler 报错
-  monaco.languages.typescript.javascriptDefaults.setModeConfiguration({
     diagnostics: false,
     documentHighlights: false,
     documentSymbols: false,
     definition: false,
     references: false,
     codeActions: false,
-    inlayHints: false
+    completionItems: false,
+    hovers: false,
+    automaticLayout: true,
+    minimap: { enabled: false },
+    scrollBeyondLastLine: false,
+    fontSize: 13,
+    snippetSuggestions: 'none',
+    occurrencesHighlight: false,
+    renderLineHighlight: 'all',
+
+    folding: false, // 彻底禁用折叠 (修复 getFoldingRanges)
+    showFoldingControls: 'never', // 隐藏折叠控件
+    breadcrumbs: { enabled: false }, // 禁用面包屑 (修复 findDocumentSymbols)
+    links: false, // 禁用链接检测
+    contextmenu: false, // 禁用右键菜单
+    quickSuggestions: false, // 禁用自动补全建议
+    suggest: { enabled: false }, // 禁用建议组件
+    parameterHints: { enabled: false }, // 禁用参数提示
+    hover: { enabled: false }, // 禁用悬浮提示
+    lightbulb: { enabled: false }, // 禁用灯泡提示
+    codeLens: false, // 禁用 CodeLens
+    wordBasedSuggestions: false, // 禁用基于单词的建议
+
+    // 添加这些配置来解决错误
+    documentFormatting: false,
+    documentRangeFormatting: false,
+    foldingStrategy: 'indentation', // 使用简单折叠策略
+    wordWrap: 'off',
+    lineNumbers: 'on',
+    glyphMargin: true,
+    selectOnLineNumbers: true,
+
+    // 重要：禁用符号和折叠相关的功能
+    outline: false,
+    suggestOnTriggerCharacters: false,
+    acceptSuggestionOnCommitCharacter: false,
+    acceptSuggestionOnEnter: 'off',
+    accessibilitySupport: 'off'
+  }
+  allLangs.forEach((lang) => {
+    if (lang === 'javascript' || lang === 'typescript') {
+      // TypeScript 特定配置
+      monaco.languages.typescript.javascriptDefaults.setModeConfiguration(cfg)
+      monaco.languages.typescript.typescriptDefaults.setModeConfiguration(cfg)
+    } else {
+      // 对其他语言也进行配置
+      if (monaco.languages[lang]) {
+        if (typeof monaco.languages[lang].defaults !== 'undefined') {
+          monaco.languages[lang].defaults.setModeConfiguration &&
+            monaco.languages[lang].defaults.setModeConfiguration(cfg)
+        }
+      }
+    }
   })
+
+  monaco.languages.html.htmlDefaults.setModeConfiguration(cfg)
+  monaco.languages.css.cssDefaults.setModeConfiguration(cfg)
+  monaco.languages.json.jsonDefaults.setModeConfiguration(cfg)
+  console.log('monaco.languages', monaco.languages)
+
+  // const cfg = {
+  //   // theme: 'vs-dark',
+  //   // language: 'javascript',
+  //   automaticLayout: true,
+  //   minimap: { enabled: false },
+  //   scrollBeyondLastLine: false,
+  //   fontSize: 13,
+  //   contextmenu: false,
+  //   lightbulb: { enabled: false },
+  //   quickSuggestions: false,
+  //   snippetSuggestions: 'none',
+  //   wordBasedSuggestions: false,
+  //   links: false,
+  //   hover: { enabled: false },
+  //   occurrencesHighlight: false,
+  //   renderLineHighlight: 'all'
+  // }
+
+  // // 1. 强制屏蔽所有 JS 服务，消除所有 Missing Handler 报错
+  // monaco.languages.typescript.javascriptDefaults.setModeConfiguration({
+  //   diagnostics: false,
+  //   documentHighlights: false,
+  //   documentSymbols: false,
+  //   definition: false,
+  //   references: false,
+  //   codeActions: false,
+  //   inlayHints: false
+  // })
 
   editors.value.left = monaco.editor.create(leftRef.value, { ...cfg, readOnly: true })
   editors.value.mid = monaco.editor.create(midRef.value, cfg)
@@ -112,7 +207,33 @@ onMounted(() => {
   })
 
   resetCode()
+
+  detectAndSetLanguage()
 })
+
+/**
+ * 自动识别编程语言并应用
+ */
+function detectAndSetLanguage() {
+  let lang = 'plaintext'
+
+  const parts = fileName.value.split('.')
+  const ext = parts.length > 1 ? parts.pop().toLowerCase() : ''
+  const langId = EXT_MAP[ext] || 'plaintext'
+
+  if (langId !== currentLangId.value) {
+    currentLangId.value = langId
+    Object.values(editors.value).forEach((ed) => {
+      if (ed) {
+        // 确保模型语言设置前应用配置
+        const model = ed.getModel()
+        if (model) {
+          monaco.editor.setModelLanguage(model, langId)
+        }
+      }
+    })
+  }
+}
 
 function syncData() {
   const code = editors.value.mid.getValue()
