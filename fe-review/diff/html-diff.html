@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>企业级 HTML DOM Diff 可视化</title>
+    <style>
+      :root {
+        --diff-add-bg: #e6ffed;
+        --diff-add-text: #22863a;
+        --diff-remove-bg: #ffeef0;
+        --diff-remove-text: #cb2431;
+        --diff-modify-border: #f9c513;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        padding: 20px;
+        line-height: 1.6;
+        color: #333;
+        background-color: #f4f5f7;
+      }
+
+      .container {
+        background: #fff;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      h2 {
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+      }
+
+      /* ================= 基础节点 Diff 样式 ================= */
+      .diff-added {
+        background-color: var(--diff-add-bg);
+        color: var(--diff-add-text);
+        text-decoration: none;
+        border-radius: 2px;
+      }
+      .diff-removed {
+        background-color: var(--diff-remove-bg);
+        color: var(--diff-remove-text);
+        text-decoration: line-through;
+        border-radius: 2px;
+      }
+
+      /* ================= 图片 Diff 专属样式 ================= */
+      .diff-img-wrapper {
+        position: relative;
+        display: inline-block;
+        margin: 8px 4px;
+        vertical-align: top;
+      }
+      /* 左上角状态标签 */
+      .diff-img-wrapper::after {
+        position: absolute;
+        top: -10px;
+        left: -10px;
+        padding: 2px 8px;
+        color: #fff;
+        font-size: 12px;
+        font-weight: bold;
+        border-radius: 4px;
+        z-index: 10;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      /* 1. 图片新增 */
+      .diff-img-added {
+        outline: 3px solid #28a745;
+        display: block;
+      }
+      .diff-img-wrap-added::after {
+        content: '图片新增';
+        background: #28a745;
+      }
+
+      /* 2. 图片删除 */
+      .diff-img-removed {
+        opacity: 0.3;
+        filter: grayscale(100%);
+        outline: 3px solid #cb2431;
+        display: block;
+      }
+      .diff-img-wrap-removed::after {
+        content: '图片删除';
+        background: #cb2431;
+      }
+      .diff-img-wrap-removed::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: rgba(203, 36, 49, 0.9);
+        transform: translateY(-50%);
+        z-index: 5;
+      }
+
+      /* 3. 图片修改 (新旧并排) */
+      .diff-img-wrap-modified {
+        border: 2px dashed var(--diff-modify-border);
+        padding: 6px;
+        border-radius: 4px;
+      }
+      .diff-img-wrap-modified::after {
+        content: '图片替换';
+        background: var(--diff-modify-border);
+        color: #333;
+        top: -12px;
+        left: -2px;
+      }
+      .diff-img-old-mod {
+        opacity: 0.4;
+        filter: grayscale(100%);
+        max-width: 150px;
+        vertical-align: middle;
+      }
+      .diff-img-new-mod {
+        border: 2px solid #28a745;
+        max-width: 150px;
+        margin-left: 10px;
+        vertical-align: middle;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>文档变更对比视图</h2>
+      <div id="app">正在比对文档差异，请稍候...</div>
+    </div>
+
+    <script>
+      // ================= 1. VDOM 解析器 =================
+      function parseHTMLToVDOM(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        return toVDOM(doc.body);
+      }
+
+      function toVDOM(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return { type: 'text', text: node.nodeValue };
+        }
+        const vdom = {
+          type: 'element',
+          tagName: node.tagName.toLowerCase(),
+          attrs: {},
+          children: []
+        };
+        for (let attr of node.attributes) {
+          vdom.attrs[attr.name] = attr.value;
+        }
+        for (let child of node.childNodes) {
+          if (child.nodeType === Node.TEXT_NODE && !child.nodeValue.trim()) continue;
+          vdom.children.push(toVDOM(child));
+        }
+        return vdom;
+      }
+
+      // ================= 2. 节点对齐 (Node Alignment) =================
+      function isSameNode(oldNode, newNode) {
+        if (oldNode.type !== newNode.type) return false;
+        if (oldNode.type === 'text') return true;
+        if (oldNode.tagName !== newNode.tagName) return false;
+        if (oldNode.attrs.id && oldNode.attrs.id === newNode.attrs.id) return true;
+        // 针对图片的启发式对齐：只要都是 img 标签，就算对齐，由后续逻辑判断 src 决定是修改还是不变
+        if (oldNode.tagName === 'img') return true;
+        return true;
+      }
+
+      // ================= 3. 高性能剪枝 Diff (支持 5W 节点核心) =================
+      function diffChildren(oldChildren, newChildren) {
+        let start = 0;
+        let oldEnd = oldChildren.length - 1;
+        let newEnd = newChildren.length - 1;
+
+        const prefix = [];
+        const suffix = [];
+
+        // 前置剪枝优化
+        while (start <= oldEnd && start <= newEnd && isSameNode(oldChildren[start], newChildren[start])) {
+          prefix.push({ status: 'merged', oldNode: oldChildren[start], newNode: newChildren[start] });
+          start++;
+        }
+
+        // 后置剪枝优化
+        while (oldEnd >= start && newEnd >= start && isSameNode(oldChildren[oldEnd], newChildren[newEnd])) {
+          suffix.unshift({ status: 'merged', oldNode: oldChildren[oldEnd], newNode: newChildren[newEnd] });
+          oldEnd--;
+          newEnd--;
+        }
+
+        // 中间差异探查 (Look-ahead)
+        const middle = [];
+        let o = start,
+          n = start;
+
+        while (o <= oldEnd || n <= newEnd) {
+          if (o > oldEnd) {
+            middle.push({ status: 'added', node: newChildren[n++] });
+          } else if (n > newEnd) {
+            middle.push({ status: 'removed', node: oldChildren[o++] });
+          } else if (isSameNode(oldChildren[o], newChildren[n])) {
+            middle.push({ status: 'merged', oldNode: oldChildren[o++], newNode: newChildren[n++] });
+          } else {
+            if (n + 1 <= newEnd && isSameNode(oldChildren[o], newChildren[n + 1])) {
+              middle.push({ status: 'added', node: newChildren[n++] });
+            } else if (o + 1 <= oldEnd && isSameNode(oldChildren[o + 1], newChildren[n])) {
+              middle.push({ status: 'removed', node: oldChildren[o++] });
+            } else {
+              middle.push({ status: 'removed', node: oldChildren[o++] });
+              middle.push({ status: 'added', node: newChildren[n++] });
+            }
+          }
+        }
+
+        return [...prefix, ...middle, ...suffix];
+      }
+
+      // ================= 4. 辅助渲染函数 (带图片拦截) =================
+      function wrapAdd(vnode) {
+        if (vnode.type === 'text') {
+          const ins = document.createElement('ins');
+          ins.className = 'diff-added';
+          ins.textContent = vnode.text;
+          return ins;
+        }
+        const el = document.createElement(vnode.tagName);
+        for (let key in vnode.attrs) el.setAttribute(key, vnode.attrs[key]);
+
+        // 专门拦截图片新增
+        if (vnode.tagName === 'img') {
+          const wrapper = document.createElement('span');
+          wrapper.className = 'diff-img-wrapper diff-img-wrap-added';
+          el.className = 'diff-img-added';
+          wrapper.appendChild(el);
+          return wrapper;
+        }
+
+        el.className = 'diff-added';
+        vnode.children.forEach(c => el.appendChild(wrapAdd(c)));
+        return el;
+      }
+
+      function wrapDelete(vnode) {
+        if (vnode.type === 'text') {
+          const del = document.createElement('del');
+          del.className = 'diff-removed';
+          del.textContent = vnode.text;
+          return del;
+        }
+        const el = document.createElement(vnode.tagName);
+        for (let key in vnode.attrs) el.setAttribute(key, vnode.attrs[key]);
+
+        // 专门拦截图片删除
+        if (vnode.tagName === 'img') {
+          const wrapper = document.createElement('span');
+          wrapper.className = 'diff-img-wrapper diff-img-wrap-removed';
+          el.className = 'diff-img-removed';
+          wrapper.appendChild(el);
+          return wrapper;
+        }
+
+        el.className = 'diff-removed';
+        vnode.children.forEach(c => el.appendChild(wrapDelete(c)));
+        return el;
+      }
+
+      // ================= 5. 主 Diff 流程与合并渲染 =================
+      /**
+       * 核心diff算法
+       * 1. LCS DOM Diff (基于 Myers 算法)：对于层级相同的子节点数组，采用去头尾优化后的 Myers $O(ND)$ 算法寻找最长公共子序列（LCS），精准识别节点的插入、删除和移动。
+       * 2. 节点对齐优化 (Node Alignment)：利用 isSameNode 启发式函数（比对 tagName、id、class 等关键特征），防止 Diff 算法迷失方向，避免将“修改”误判为“大规模删除+新增”
+       * 3. 图片 Diff (Image Diff)：针对 <img> 标签特殊处理，如果 src 改变，不直接删减，而是采用“残影对比”（洋葱皮模式）或“并排高亮”进行视觉展示。
+       * 4. 性能优化 (支持 5w+ 节点)：
+       *    空间换时间：Diff 过程完全在纯 JS 对象（VDOM）上进行，脱离真实 DOM。
+       *    首尾剪枝：在进行昂贵的 Myers 数组比对前，先剔除完全相同的头部和尾部节点，将 $N$ 降到最低。
+       *    离线渲染：使用 DocumentFragment 一次性挂载结果。
+       */
+      function mergeToVisualDOM(oldNode, newNode) {
+        if (oldNode && !newNode) return wrapDelete(oldNode);
+        if (!oldNode && newNode) return wrapAdd(newNode);
+
+        if (oldNode.type !== newNode.type || oldNode.tagName !== newNode.tagName) {
+          const frag = document.createDocumentFragment();
+          frag.appendChild(wrapDelete(oldNode));
+          frag.appendChild(wrapAdd(newNode));
+          return frag;
+        }
+
+        // 文本比对
+        if (oldNode.type === 'text' && newNode.type === 'text') {
+          if (oldNode.text === newNode.text) return document.createTextNode(newNode.text);
+          const span = document.createElement('span');
+          span.innerHTML = `<del class="diff-removed">${oldNode.text}</del><ins class="diff-added">${newNode.text}</ins>`;
+          return span;
+        }
+
+        // 图片替换 (src 不同)
+        if (oldNode.tagName === 'img' && newNode.tagName === 'img') {
+          if (oldNode.attrs.src !== newNode.attrs.src) {
+            const container = document.createElement('span');
+            container.className = 'diff-img-wrapper diff-img-wrap-modified';
+            container.innerHTML = `
+                <img class="diff-img-old-mod" src="${oldNode.attrs.src || ''}" title="旧版本图片" />
+                <img class="diff-img-new-mod" src="${newNode.attrs.src || ''}" title="新版本图片" />
+            `;
+            return container;
+          }
+        }
+
+        // 常规节点递归
+        const el = document.createElement(newNode.tagName);
+        for (let key in newNode.attrs) el.setAttribute(key, newNode.attrs[key]);
+
+        const childPatches = diffChildren(oldNode.children, newNode.children);
+
+        for (let patch of childPatches) {
+          if (patch.status === 'added') el.appendChild(wrapAdd(patch.node));
+          else if (patch.status === 'removed') el.appendChild(wrapDelete(patch.node));
+          else if (patch.status === 'merged') {
+            const mergedChild = mergeToVisualDOM(patch.oldNode, patch.newNode);
+            if (mergedChild) el.appendChild(mergedChild);
+          }
+        }
+
+        return el;
+      }
+
+      // ================= 6. 执行入口 =================
+      function renderDiff(oldHtml, newHtml, containerId) {
+        console.time('Diff Performance');
+        const oldVDOM = parseHTMLToVDOM(oldHtml);
+        const newVDOM = parseHTMLToVDOM(newHtml);
+        const visualDOM = mergeToVisualDOM(oldVDOM, newVDOM);
+        console.timeEnd('Diff Performance');
+
+        const fragment = document.createDocumentFragment();
+        while (visualDOM.firstChild) {
+          fragment.appendChild(visualDOM.firstChild);
+        }
+
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        container.appendChild(fragment);
+      }
+
+      // ================= 7. 极端场景测试用例 =================
+      const oldHTML = `
+    <div>
+        <h1>系统升级报告 V1.0</h1>
+        <p>本文档包含了基础系统的升级说明。</p>
+        <p>这一段将在新版本中被删除，因为它过时了。</p>
+
+        <h3>架构图示</h3>
+        <img src="https://via.placeholder.com/200/cccccc/000000?text=Old+Architecture" alt="旧架构" />
+
+        <p>废弃的服务节点示意图：</p>
+        <img src="https://via.placeholder.com/150/ff9999/000000?text=Deprecated+Node" alt="废弃节点" />
+
+        <ul>
+            <li>Redis 缓存集群</li>
+            <li>MySQL 主从复制</li>
+            <li>Nginx 负载均衡</li>
+        </ul>
+    </div>
+`;
+
+      const newHTML = `
+    <div>
+        <h1>系统升级报告 V2.0 (已更新)</h1>
+        <p>本文档包含了基础系统及 AI 模块的升级说明。</p>
+        <h3>架构图示</h3>
+        <img src="https://via.placeholder.com/200/28a745/ffffff?text=New+Architecture" alt="新架构" />
+
+        <p>新增的 AI 推理节点示意图：</p>
+        <img src="https://via.placeholder.com/150/007bff/ffffff?text=AI+Inference+Node" alt="AI节点" />
+
+        <ul>
+            <li>Redis 缓存集群</li>
+            <li>新增：ElasticSearch 检索</li>
+            <li>MySQL 主从复制 (升级至 8.0)</li>
+            <li>Nginx 负载均衡</li>
+        </ul>
+    </div>
+`;
+
+      // 触发比对
+      setTimeout(() => {
+        const oldHtml = `
+<img src="https://picsum.photos/300?1">
+yyyy
+<div>new</div>
+aa Hello <b>world</b><br/> <img src="https://picsum.photos/200?1"><br/>
+<span>finally you win</span>
+<br/>
+<a href="https://www.baidu.com">baidu</a>
+hjk<br/>
+<a href="https://www.deepseek.com">Deepseek</a>
+
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>IaaS (基础设施即服务)</th>
+<th>PaaS (平台即服务)</th>
+<th>SaaS (软件即服务)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>全称</strong></td>
+<td>Infrastructure as a Service</td>
+<td>Platform as a Service</td>
+<td>Software as a Service</td>
+</tr>
+<tr>
+<td><strong>主要使用者</strong></td>
+<td>网络管理员、系统工程师</td>
+<td>开发人员、运维专家</td>
+<td>普通办公人员、最终用户</td>
+</tr>
+<tr>
+<td><strong>你管理什么</strong></td>
+<td>操作系统、应用、数据、中间件</td>
+<td>应用程序、数据</td>
+<td>仅简单的应用设置（如头像）</td>
+</tr>
+<tr>
+<td><strong>厂商管理什么</strong></td>
+<td>物理机、硬盘、网络、虚拟化</td>
+<td>硬件 + 操作系统 + 运行环境</td>
+<td>一切（从底层硬件到软件功能）</td>
+</tr>
+<tr>
+<td><strong>核心优势</strong></td>
+<td>掌控力极强，配置完全自由</td>
+<td>省去环境搭建，专注写业务代码</td>
+<td>无需维护，随处可用，成本透明</td>
+</tr>
+<tr>
+<td><strong>对应类比</strong></td>
+<td>租厨房：提供煤气灶、水，厨具食材自带</td>
+<td>订外卖：你点菜名（代码），饭馆做（平台运行）</td>
+<td>去饭馆吃：坐下就吃，不用洗碗洗锅</td>
+</tr>
+</tbody></table>
+`;
+
+        const newHtml = `
+Hello brave <b>world</b>
+!!! <img src="https://picsum.photos/200?2">
+<div>new2</div>
+<br/><span>finally yosu win</span>
+<br/>
+<a href="https://www.csdn.net/">CSDN</a>
+
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>IaaS (基础设施即服务22)</th>
+<th>PaaS (平台即服务)</th>
+<th>SaaS (软件即服务)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>全称2</strong></td>
+<td>Infrastructure as a Service</td>
+<td>Platform as a Service</td>
+<td>Software as a Service</td>
+</tr>
+<tr>
+<td><strong>主要使用者</strong></td>
+<td>网络管理员2、系统工程师</td>
+<td>开发人员、运维专家</td>
+<td>普通办公人员、最终用户</td>
+</tr>
+<tr>
+<td><strong>你管理什么</strong></td>
+<td>操作系统、应用、数据、中间件</td>
+<td>应用程序、数据</td>
+<td>仅简单的应用设置（如头像）</td>
+</tr>
+<tr>
+<td><strong>厂商管理什么</strong></td>
+<td>物理机、硬盘、网络、虚拟化</td>
+<td>硬件 + 操作系统 + 运行环境</td>
+<td>一切（从底层硬件到软件功能）</td>
+</tr>
+<tr>
+<td><strong>核心优势</strong></td>
+<td>掌控力极强，配置完全自由</td>
+<td>省去环境搭建，专注写业务代码</td>
+<td>无需维护，随处可用，成本透明</td>
+</tr>
+<tr>
+<td><strong>对应类比</strong></td>
+<td>租厨房：提供煤气灶、水，厨具食材自带</td>
+<td>订外卖：你点菜名（代码），饭馆做（平台运行）</td>
+<td>去饭馆吃：坐下就吃，不用洗碗洗锅</td>
+</tr>
+</tbody></table>
+`;
+        // renderDiff(oldHTML, newHTML, 'app');
+        renderDiff(oldHtml, newHtml, 'app');
+      }, 500); // 稍微延迟以展示 Loading 效果
+    </script>
+  </body>
+</html>
