@@ -50,11 +50,7 @@ const router = createRouter({
       name: 'code2',
       component: () => import('../views/MergeCode2.vue')
     },
-    {
-      path: '/codeDemo',
-      name: 'codeDemo',
-      component: () => import('../views/MergeCode copy.vue')
-    }
+
   ]
 })
 

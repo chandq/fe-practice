@@ -2,7 +2,7 @@
  * @Description:
  * @Date: 2025-12-24 17:33:17
  * @LastEditors: chendq
- * @LastEditTime: 2025-12-29 09:23:58
+ * @LastEditTime: 2025-12-30 14:05:35
  * @Author      : chendq
  */
 /**
@@ -23,8 +23,8 @@ async function readRemoteFile(url) {
 }
 ;(async () => {
   const aStr = await readRemoteFile('/codeMerge/a.html.txt')
-  const bStr = await readRemoteFile('/codeMerge/b.html')
+  // const bStr = await readRemoteFile('/package-lock.json')
   window.aStr = aStr
-  window.bStr = bStr
+  // window.bStr = bStr
   // console.log('****', aStr, bStr)
 })()
