@@ -1,0 +1,30 @@
+{
+  "name": "fe-practice",
+  "version": "1.0.0",
+  "private": true,
+  "description": "前端实战大杂烩工程 - pnpm workspace monorepo",
+  "scripts": {
+    "dev:babel": "pnpm --filter babel-usage build",
+    "dev:vue2": "pnpm --filter vue2-spa-demo serve",
+    "dev:vue3": "pnpm --filter vue3-spa-demo dev",
+    "build:vue2": "pnpm --filter vue2-spa-demo build",
+    "build:vue3": "pnpm --filter vue3-spa-demo build",
+    "lint:vue3": "pnpm --filter vue3-spa-demo lint",
+    "install:all": "pnpm install",
+    "clean": "pnpm -r exec rm -rf node_modules dist"
+  },
+  "keywords": [
+    "frontend",
+    "practice",
+    "vue",
+    "babel",
+    "monorepo"
+  ],
+  "author": "chendq",
+  "license": "ISC",
+  "packageManager": "pnpm@8.15.1",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

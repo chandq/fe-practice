@@ -1,4 +1,8 @@
 .DS_Store
-**/*/node_modules
-*/dist
-*/lib
+node_modules
+dist
+lib
+*.log
+*.local
+.env.local
+.env.*.local
