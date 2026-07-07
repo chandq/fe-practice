@@ -1,4 +1,4 @@
-// src/App.vue
+// src/App.vue9
 <template>
   <div class="editor-wrapper">
     <button @click="getContent">文本内容</button>
@@ -12,14 +12,24 @@ import { onMounted, ref, shallowRef, onUnmounted, h } from 'vue'
 // 从 @aomao/engine 导入引擎核心和语言包
 import Engine, { EngineInterface, ToolbarOptions } from '@aomao/engine'
 // ✅ 关键修正：从 @aomao/toolbar-vue 导入 Toolbar 类
-import Toolbar, { ToolbarPlugin, ToolbarComponent } from '@aomao/toolbar-vue'
-import AmImage, { ImageComponent, ImageUploader } from '@aomao/plugin-image'
+import Toolbar, { ToolbarPlugin, ToolbarComponent, fontFamilyDefaultData } from '@aomao/toolbar-vue'
+
+import Heading from '@aomao/plugin-heading'
+import Fontsize from '@aomao/plugin-fontsize'
+import Fontfamily from '@aomao/plugin-fontfamily'
 
 // 引入基础插件
 import Redo from '@aomao/plugin-redo'
 import Undo from '@aomao/plugin-undo'
 import Bold from '@aomao/plugin-bold'
-import CodeBlock, { CodeBlockComponent } from '@aomao/plugin-codeblock'
+
+import Fontcolor from '@aomao/plugin-fontcolor'
+import Quote from '@aomao/plugin-quote'
+
+import Link from '@aomao/plugin-link-vue'
+import Codeblock, { CodeBlockComponent } from '@aomao/plugin-codeblock-vue'
+import AmImage, { ImageComponent, ImageUploader } from '@aomao/plugin-image'
+import Table, { TableComponent } from '@aomao/plugin-table'
 
 // 引入我们自己的插件和卡片
 import IframePlugin from './plugins/iframe'
@@ -43,9 +53,25 @@ function init() {
   // ✅ 关键修正：构造函数中不再有 render 参数
   const engineInstance = new Engine(editorRef.value, {
     // 注册插件
-    plugins: [Redo, Undo, ToolbarPlugin, Bold, CodeBlock, IframePlugin, AmImage, ImageUploader],
+    plugins: [
+      Redo,
+      Undo,
+      ToolbarPlugin,
+      Bold,
+      Link,
+      Codeblock,
+      AmImage,
+      ImageUploader,
+      Table,
+      IframePlugin,
+      Heading,
+      Fontfamily,
+      Fontsize,
+      Fontcolor,
+      Quote
+    ],
     // 注册卡片
-    cards: [ToolbarComponent, CodeBlockComponent, IframeCard, ImageComponent],
+    cards: [ToolbarComponent, CodeBlockComponent, IframeCard, ImageComponent, TableComponent],
     // 字体
     iconFonts: [
       {
@@ -86,6 +112,41 @@ function init() {
         },
         // parse,
         limitSize: 1024 * 1024 * 50
+      },
+      [Fontsize.pluginName]: {
+        //配置粘贴后需要过滤的字体大小
+        filter: (fontSize: string) => {
+          return (
+            [
+              '12px',
+              '13px',
+              '14px',
+              '15px',
+              '16px',
+              '19px',
+              '22px',
+              '24px',
+              '29px',
+              '32px',
+              '40px',
+              '48px'
+            ].indexOf(fontSize) > -1
+          )
+        },
+        defaultSize: '16px'
+      },
+      [Fontfamily.pluginName]: {
+        //配置粘贴后需要过滤的字体
+        filter: (fontfamily: string) => {
+          const item = fontFamilyDefaultData.find((item) =>
+            fontfamily
+              .split(',')
+              .some(
+                (name) => item.value.toLowerCase().indexOf(name.replace(/"/, '').toLowerCase()) > -1
+              )
+          )
+          return item ? item.value : false
+        }
       }
     }
     // 配置语言
@@ -113,7 +174,11 @@ function init() {
         ]
       }
     ],
-    ['undo', 'redo', 'bold'],
+    ['undo', 'redo'],
+    ['bold', 'italic', 'strikethrough', 'underline', 'moremark'],
+    ['fontcolor', 'backcolor'],
+    ['heading', 'fontfamily', 'fontsize'],
+    ['link', 'quote', 'hr'],
     [
       {
         // 告诉工具栏，这是一个标准的按钮
@@ -204,6 +269,7 @@ onUnmounted(() => {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   max-width: 800px;
+  overflow: auto;
 }
 .editor-toolbar {
   padding: 8px;

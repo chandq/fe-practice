@@ -14,5 +14,12 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
-  }
+  },
+  css: {
+    preprocessorOptions: {
+      less: {
+        javascriptEnabled: true, //注意，这一句是在less对象中，写在外边不起作用
+      },
+    },
+  },
 })
