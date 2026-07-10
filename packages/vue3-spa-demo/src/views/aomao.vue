@@ -2,6 +2,7 @@
 <template>
   <div class="editor-wrapper">
     <button @click="getContent">文本内容</button>
+    <textarea ref="textarea" style="width: 100%; min-height: 320px" v-model="htmlStr" />
     <Toolbar v-if="engine" :engine="engine" :items="toolbarItems" />
     <div ref="editorRef" class="editor-container"></div>
   </div>
@@ -23,6 +24,14 @@ import Redo from '@aomao/plugin-redo'
 import Undo from '@aomao/plugin-undo'
 import Bold from '@aomao/plugin-bold'
 
+import Strikethrough from '@aomao/plugin-strikethrough'
+import Sub from '@aomao/plugin-sub'
+import Sup from '@aomao/plugin-sup'
+import Alignment from '@aomao/plugin-alignment'
+import Mark from '@aomao/plugin-mark'
+import PaintFormat from '@aomao/plugin-paintformat'
+import RemoveFormat from '@aomao/plugin-removeformat'
+
 import Fontcolor from '@aomao/plugin-fontcolor'
 import Quote from '@aomao/plugin-quote'
 
@@ -38,6 +47,7 @@ import iframeZhCn from './plugins/iframe/locale/zh-cn'
 
 import localforage from 'localforage'
 
+const htmlStr = ref('')
 // DOM 引用
 const editorRef = ref<HTMLElement | null>(null)
 const toolbarRef = ref<HTMLElement | null>(null)
@@ -58,6 +68,15 @@ function init() {
       Undo,
       ToolbarPlugin,
       Bold,
+      Strikethrough,
+      Sub,
+      Sup,
+      Alignment,
+      Mark,
+      Quote,
+      PaintFormat,
+      RemoveFormat,
+
       Link,
       Codeblock,
       AmImage,
@@ -224,9 +243,13 @@ function init() {
     tempContent ??
       '<h2>欢迎使用 Aomao Iframe 插件</h2><p>点击下方工具栏的图标来插入一个内嵌页面吧！</p>'
   )
+  // engineInstance.setHtml(
+  //   `<div class="editor-container am-engine" data-element="root" style="font-size: 16px;"><h2 data-id="h4kgw8yp6-1fyudpvctkw00" id="h4kgw8yp6-1fyudpvctkw00">欢迎使用 Aomao Iframe 插件</h2><p data-id="p1dr9j7ls-ya32ou3w3f40">点击下方工具栏的图标来插入一个内嵌页面吧！ss</p><p data-id="p1dr9j7ls-tjl0x7l2qgg0"><br></p><h2 id="h4kgw8yp6-fo6rb94bo5400" data-id="h4kgw8yp6-fo6rb94bo5400">使用示例</h2><h3 id="h4kgw8yp6-js243krqt8w00" data-id="h4kgw8yp6-js243krqt8w00"><span><del class="diff-removed">使用Roo Code + Tabby 从零</del><ins class="diff-added">使ADD-TEXT用Roo Code + Tabby 从零</ins></span><span style="color: rgb(24, 144, 255);">构建前后端</span>项目示例</h3><blockquote data-id="b1ekkn4bk-hzwar749rhs00" style="margin-top: 5px; margin-bottom: 5px; padding-left: 1em; margin-left: 0px; border-left: 3px solid rgb(238, 238, 238); opacity: 0.6;"><p data-id="p1dr9j7ls-colu6mp50xc00"><span><del class="diff-removed">sdfsdfdfwf</del><ins class="diff-added">sdff</ins></span><span style="color: rgb(245, 34, 45);">ewf</span><span><del class="diff-removed">fsdfsfs</del><ins class="diff-added">ffs</ins></span></p></blockquote><h2 data-id="h4kgw8yp6-1dbtddi712qo" id="h4kgw8yp6-1dbtddi712qo"><span><del class="diff-removed">aaaa</del><ins class="diff-added">aBFCa</ins></span></h2><p data-id="p1dr9j7ls-g95405e9j4o0">bbb</p><div data-id="dh89qey54-ktrsjq4qrww00" data-card-editable="false" data-syntax="plain" auto-wrap="false"><div class="" style="border: 1px solid rgb(232, 232, 232); padding: 8px; background: rgb(249, 249, 249);"><div style="font-family: monospace;font-size: 13px; line-height: 21px; color: #595959; direction: ltr; height: auto; overflow: hidden;background: transparent;"><pre style="color: rgb(89, 89, 89); margin: 0px; padding: 0px; background: none 0% 0% / auto repeat scroll padding-box border-box rgba(0, 0, 0, 0);"></pre></div></div></div><div class="editor-table-wrapper" style="width:100%;overflow:auto;" data-id="tvrux7s8w-1bm9xj56yxi8-table" data-table-no-border="false"><table data-width="573px" data-id="tvrux7s8w-1bm9xj56yxi8" class="data-table" style="width: 100%; outline: none; border-collapse: collapse;" data-transient-attributes="class"><colgroup data-id="c1e4a4ebk-1ithu0d529og0"><col width="191" data-id="c1uwacwsg-92rpiydbh2w0" span="1"><col width="191" data-id="c1uwacwsg-61l4hc17ucw0" span="1"><col width="191" data-id="c1uwacwsg-5sm9e9zkjz00" span="1"></colgroup><tbody data-id="t1dr9qg4g-23t5v1v7be5c0"><tr data-id="t15ucy39c-1vfmayp73nb40" style="height: 30px;"><td data-id="to1v3dpz4-1uwrzhw3iqkg0" style="vertical-align: top; min-width: auto; overflow-wrap: break-word; margin: 4px 8px; border: 1px solid rgb(217, 217, 217); padding: 4px 8px; cursor: default;" data-transient-attributes="table-cell-selection"><p data-id="p1dr9j7ls-19hyyin2c9i80" class="diff-removed"><strong class="diff-removed"><del class="diff-removed">服务地址</del></strong></p></td><td data-id="to1v3dpz4-1s1r1kx044o00" style="vertical-align: top; min-width: auto; overflow-wrap: break-word; margin: 4px 8px; border: 1px solid rgb(217, 217, 217); padding: 4px 8px; cursor: default;" data-transient-attributes="table-cell-selection"><p data-id="p1dr9j7ls-eytzeuz667400"><a target="_blank" href="http://172.30.85.10:8093" style="font-family: monospace; font-size: inherit; background-color: rgba(0, 0, 0, 0.06); padding: 0px 2px; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; line-height: inherit; overflow-wrap: break-word; text-indent: 0px;">http://172.30.85.10:8093</a></p></td><td class="table-last-row" data-id="t1fi1b2aw-33d5myviqvq00" style="vertical-align: top; min-width: auto; overflow-wrap: break-word; margin: 4px 8px; border: 1px solid rgb(217, 217, 217); padding: 4px 8px; cursor: default;" data-transient-attributes="table-cell-selection"><p data-id="p1dr9j7ls-i2ehzzuqppc00">23</p></td></tr><tr data-id="t15ucy39c-g9nn2nv7z3k00" style="height: 30px;"><td data-id="to1v3dpz4-8n2oexngkfs00" style="vertical-align: top; min-width: auto; overflow-wrap: break-word; margin: 4px 8px; border: 1px solid rgb(217, 217, 217); padding: 4px 8px; cursor: default;" data-transient-attributes="table-cell-selection"><p data-id="p1dr9j7ls-67wylvkugpg00">测试 API key</p></td><td data-id="to1v3dpz4-35poo1tiwce00" style="vertical-align: top; min-width: auto; overflow-wrap: break-word; margin: 4px 8px; border: 1px solid rgb(217, 217, 217); padding: 4px 8px; cursor: default;" data-transient-attributes="table-cell-selection"><p data-id="p1dr9j7ls-407addd08ly00">sdfdf</p></td><td class="table-last-row" data-id="t1fi1b2aw-4y35eytm2vs00" style="vertical-align: top; min-width: auto; overflow-wrap: break-word; margin: 4px 8px; border: 1px solid rgb(217, 217, 217); padding: 4px 8px; cursor: default;" data-transient-attributes="table-cell-selection"><p data-id="p1dr9j7ls-7s8id8rbvts00"><br></p></td></tr><tr data-id="t15ucy39c-crkqqxqaygo00" style="height: 30px;"><td class="table-last-column" data-id="t14oj2scg-4tswcacb8ru00" style="vertical-align: top; min-width: auto; overflow-wrap: break-word; margin: 4px 8px; border: 1px solid rgb(217, 217, 217); padding: 4px 8px; cursor: default;" data-transient-attributes="table-cell-selection"><p data-id="p1dr9j7ls-hfo6jyldmio00">可运送</p></td><td class="table-last-column" data-id="t14oj2scg-e6jqjl3md4g00" style="vertical-align: top; min-width: auto; overflow-wrap: break-word; margin: 4px 8px; border: 1px solid rgb(217, 217, 217); padding: 4px 8px; cursor: default;" data-transient-attributes="table-cell-selection"><p data-id="p1dr9j7ls-gsciavj756w00"><br></p></td><td class="table-last-column table-last-row" data-id="tbata35h4-u5kzu2x47j4" style="vertical-align: top; min-width: auto; overflow-wrap: break-word; margin: 4px 8px; border: 1px solid rgb(217, 217, 217); padding: 4px 8px; cursor: default;" data-transient-attributes="table-cell-selection"><p data-id="p1dr9j7ls-awfguocjf4000"><br></p></td></tr><tr style="height:0px"><td width="191px"></td><td width="191px"></td><td width="191px"></td></tr></tbody></table></div><p data-id="p1dr9j7ls-2zw7svsjoku00"><br></p><div data-id="d3dzxvrse-1tctlxtjlt340" data-card-editable="false" data-syntax="typescript" auto-wrap="false"><div class="" style="border: 1px solid rgb(232, 232, 232); padding: 8px; background: rgb(249, 249, 249);"><div style="font-family: monospace;font-size: 13px; line-height: 21px; color: #595959; direction: ltr; height: auto; overflow: hidden;background: transparent;"><pre style="color: rgb(89, 89, 89); margin: 0px; padding: 0px; background: none 0% 0% / auto repeat scroll padding-box border-box rgba(0, 0, 0, 0);"><span style="color: #d73a49;">import</span> { <span style="color: #005cc5;">fileURLToPath</span>, <span style="color: #005cc5;">URL</span> } <span style="color: #d73a49;">from</span><span style="color: #690">'node:url'</span><br><br><span style="color: #d73a49;">import</span> { <span style="color: #005cc5;">defineConfig</span> } <span style="color: #d73a49;">from</span><span style="color: #690">'vite'</span><br><span style="color: #d73a49;">import</span><span style="color: #005cc5;">vue</span><span style="color: #d73a49;">from</span><span style="color: #690">'@vitejs/plugin-vue'</span><br><span style="color: #d73a49;">import</span><span style="color: #005cc5;">vueJsx</span><span style="color: #d73a49;">from</span><span style="color: #690">'@vitejs/plugin-vue-jsx'</span><br><br><span style="color: #6a737d;">// https://vitejs.dev/config/</span><br><span style="color: #d73a49;">export</span><span style="color: #d73a49;">default</span><span>defineConfig</span>({<br><span style="color: #005cc5;">plugins</span>: [<br><span>vue</span>(),<br><span>vueJsx</span>(),<br> ],<br><span style="color: #005cc5;">resolve</span>: {<br><span style="color: #005cc5;">alias</span>: {<br><span style="color: #690color: #005cc5;">'@'</span>: <span>fileURLToPath</span>(<span style="color: #d73a49;">new</span><span>URL</span>(<span style="color: #690">'./src'</span>, <span style="color: #d73a49;">import</span>.<span style="color: #005cc5;">meta</span>.<span style="color: #005cc5;">url</span>))<br> }<br> },<br><span style="color: #005cc5;">css</span>: {<br><span style="color: #005cc5;">preprocessorOptions</span>: {<br><span style="color: #005cc5;"><del class="diff-removed">less</del></span>: {<br><span style="color: #005cc5;"><span><del class="diff-removed">javascriptEnabled</del><ins class="diff-added">AjavascriptEnabled</ins></span></span>: <span style="color: #905;">true</span>, <span style="color: #6a737d;"><span><del class="diff-removed">//注意，这一句是在less对象中，写在外边不起作用</del><ins class="diff-added">//注意，这一句是，写在外边不起作用</ins></span></span><br> },<br> },<br> },<br>})</pre></div><span class="diff-img-wrapper diff-img-wrap-added"><img src="https://cfcdn.apowersoft.info/astro/gitmind/_astro/screen-2-4.1fd8d2d6.png" style="visibility:visible;width:426px;height:522px;" data-type="inline" class="diff-img-added"></span></div></div></div>`
+  // )
   engineInstance.on('blur', () => {
     console.log('engineInstance-blur', engineInstance.getHtml())
     localStorage.setItem('editorContent', engineInstance.getHtml())
+    htmlStr.value = engineInstance.getHtml()
   })
   // 保存引擎实例
   engine.value = engineInstance

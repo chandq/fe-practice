@@ -50,6 +50,11 @@ const router = createRouter({
       name: 'code2',
       component: () => import('../views/MergeCode2.vue')
     },
+    {
+      path: '/htmldiff',
+      name: 'htmldiff',
+      component: () => import('../views/HtmlDiffDemo.vue')
+    },
 
   ]
 })

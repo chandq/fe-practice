@@ -30,6 +30,7 @@ async function handleRequest() {
         <RouterLink to="/">Home</RouterLink>
         <RouterLink to="/about">About</RouterLink>
         <RouterLink to="/aomao">Aomao</RouterLink>
+        <RouterLink to="/htmldiff">HtmlDiff</RouterLink>
         <!-- <RouterLink to="/xmind">XMind</RouterLink>
         <RouterLink to="/xmind2">XMind2</RouterLink> -->
         <a href="//baidu.com" target="_blank" style="color: red">跳转百度</a>
