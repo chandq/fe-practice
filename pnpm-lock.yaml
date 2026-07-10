@@ -90,6 +90,9 @@ importers:
       '@aomao/engine':
         specifier: ^2.10.26
         version: 2.10.26
+      '@aomao/plugin-alignment':
+        specifier: ^2.10.0
+        version: 2.10.0(@aomao/engine@2.10.26)
       '@aomao/plugin-bold':
         specifier: ^2.10.0
         version: 2.10.0(@aomao/engine@2.10.26)
@@ -117,15 +120,33 @@ importers:
       '@aomao/plugin-link-vue':
         specifier: ^2.10.1
         version: 2.10.1(@aomao/engine@2.10.26)(ant-design-vue@2.2.8(@vue/compiler-sfc@3.5.32)(vue@3.5.32(typescript@5.3.3)))(vue@3.5.32(typescript@5.3.3))
+      '@aomao/plugin-mark':
+        specifier: ^2.10.0
+        version: 2.10.0(@aomao/engine@2.10.26)
       '@aomao/plugin-mention':
         specifier: ^2.10.3
         version: 2.10.3(@aomao/engine@2.10.26)
+      '@aomao/plugin-paintformat':
+        specifier: ^2.10.0
+        version: 2.10.0(@aomao/engine@2.10.26)
       '@aomao/plugin-quote':
         specifier: ^2.10.0
         version: 2.10.0(@aomao/engine@2.10.26)
       '@aomao/plugin-redo':
         specifier: ^2.10.0
         version: 2.10.0(@aomao/engine@2.10.26)
+      '@aomao/plugin-removeformat':
+        specifier: ^2.10.0
+        version: 2.10.0(@aomao/engine@2.10.26)
+      '@aomao/plugin-strikethrough':
+        specifier: ^2.10.0
+        version: 2.10.0(@aomao/engine@2.10.26)
+      '@aomao/plugin-sub':
+        specifier: ^2.10.1
+        version: 2.10.1(@aomao/engine@2.10.26)
+      '@aomao/plugin-sup':
+        specifier: ^2.10.1
+        version: 2.10.1(@aomao/engine@2.10.26)
       '@aomao/plugin-table':
         specifier: ^2.10.8
         version: 2.10.8(@aomao/engine@2.10.26)
@@ -144,6 +165,9 @@ importers:
       ant-design-vue:
         specifier: ~2.2.8
         version: 2.2.8(@vue/compiler-sfc@3.5.32)(vue@3.5.32(typescript@5.3.3))
+      htmldiff-js:
+        specifier: ^1.0.5
+        version: 1.0.5
       less:
         specifier: ^4.2.0
         version: 4.6.4
@@ -256,6 +280,11 @@ packages:
   '@aomao/engine@2.10.26':
     resolution: {integrity: sha512-zoZCwTwjfPdh9g+4y9UaIUBg8DB8p5z0LiFEXFqIPGDJliq1hWNH9C0GgSBNfoJP4TZIl2nenr/zDBDYZ4msLw==}
 
+  '@aomao/plugin-alignment@2.10.0':
+    resolution: {integrity: sha512-Xgte74iYb+m69KtuyH8+vnDWdsH//No9tjmiu9y3ctV9gqUhJQMGv4OCf+n3MZmshX1HgXy5Rm6LW1u3ivE56A==}
+    peerDependencies:
+      '@aomao/engine': '>=2.9'
+
   '@aomao/plugin-bold@2.10.0':
     resolution: {integrity: sha512-I5uiuBrth1r8CBWDrg+94jXHpsaSe3XKNKKqEEAyeGBkydNWBtJRsW0ScQgmhlvozn5xTIniYd3OkqZ04MoCMQ==}
     peerDependencies:
@@ -308,8 +337,18 @@ packages:
       ant-design-vue: '>=2.2.6'
       vue: '>=3.2.9'
 
+  '@aomao/plugin-mark@2.10.0':
+    resolution: {integrity: sha512-gOFIW/zGBnV9nEYRdGnWkinlZGFfEO0vmndr/Y+vQ29s3hbXnGejkvYB1SfuRm+PpP8R7jz/VnkH0yWOOZ8NCg==}
+    peerDependencies:
+      '@aomao/engine': '>=2.9'
+
   '@aomao/plugin-mention@2.10.3':
     resolution: {integrity: sha512-xg+V5QbQ4wi0Kf4LKAvXz9L6w+jUXHJIgGEmQQYRnLAkXFJ/OIug27hl1Zt2lhSV3FoJn2kOA+G7oCVP1/0C9w==}
+    peerDependencies:
+      '@aomao/engine': '>=2.9'
+
+  '@aomao/plugin-paintformat@2.10.0':
+    resolution: {integrity: sha512-HXvID/X866CsH9E607sW4joc3iqtbwHqBBLiJ+ICcSfWb+Nta+A/AWmEAYjdiVlg57vPTeYAlUCIczOaWqU9vA==}
     peerDependencies:
       '@aomao/engine': '>=2.9'
 
@@ -320,6 +359,26 @@ packages:
 
   '@aomao/plugin-redo@2.10.0':
     resolution: {integrity: sha512-F9/qyTlC6k9+CpploKXDknl7PP+/GgiVe9iRnlW4V2DmpSQjFWVGp+D0wC++5rKjshGwskqER8K7gq/bvLoe2w==}
+    peerDependencies:
+      '@aomao/engine': '>=2.9'
+
+  '@aomao/plugin-removeformat@2.10.0':
+    resolution: {integrity: sha512-sxgnGYH4wNX1BqVVP7bx9tdwEkBLgHpoa8O2ZsNbc3eNEsTOSQQMdC8nHxxeKeFGWYrEY5/FhkBKT+sdYSc2ew==}
+    peerDependencies:
+      '@aomao/engine': '>=2.9'
+
+  '@aomao/plugin-strikethrough@2.10.0':
+    resolution: {integrity: sha512-eR3QKPE+pTteBbUVwM3IMocWcJcP+57DlOrDszeKRVWVmML6UYK9m0dctar7c9RNwMOviT+Iw8/6Fo4ltA9tDA==}
+    peerDependencies:
+      '@aomao/engine': '>=2.9'
+
+  '@aomao/plugin-sub@2.10.1':
+    resolution: {integrity: sha512-/hux62+q/e04jiqN7njTRObfxP72JttmFv0KlQ9V5rScixTIwrELx59ZvnF6Ds/pAc+/xqYJJ8teh125WmaCEA==}
+    peerDependencies:
+      '@aomao/engine': '>=2.9'
+
+  '@aomao/plugin-sup@2.10.1':
+    resolution: {integrity: sha512-8pJktsHKWAq39IuSpM2YwrbnkxuvrJxG1nYvCN+10jmh9P+iujq5fwxXycKXRDekW8BegPClLwcz1dbAa4n5og==}
     peerDependencies:
       '@aomao/engine': '>=2.9'
 
@@ -3164,6 +3223,9 @@ packages:
       webpack:
         optional: true
 
+  htmldiff-js@1.0.5:
+    resolution: {integrity: sha512-rmow9353OK0elkub15Sbze8Nj7BYfduqoJJw4yEvHHjOcHeCazNPk0PoUbjE8SvxKgjymeRIFU/OnS8jtitRtA==}
+
   htmlparser2@6.1.0:
     resolution: {integrity: sha512-gyyPk6rgonLFEDGoeRgQNaEUvdJ4ktTmmUh/h2t7s+M8oPpIPxgNACWa+6ESR57kXstwqPiCut0V8NRpcwgU7A==}
 
@@ -3601,6 +3663,15 @@ packages:
   make-dir@3.1.0:
     resolution: {integrity: sha512-g3FeP20LNwhALb/6Cz6Dd4F2ngze0jz7tbzrD2wAV+o9FeNHe4rL+yK2md0J/fiSf1sa1ADhXqi5+oVwOM/eGw==}
     engines: {node: '>=8'}
+
+  markdown-it-mark@3.0.1:
+    resolution: {integrity: sha512-HyxjAu6BRsdt6Xcv6TKVQnkz/E70TdGXEFHRYBGLncRE9lBFwDNLVtFojKxjJWgJ+5XxUwLaHXy+2sGBbDn+4A==}
+
+  markdown-it-sub@1.0.0:
+    resolution: {integrity: sha512-z2Rm/LzEE1wzwTSDrI+FlPEveAAbgdAdPhdWarq/ZGJrGW/uCQbKAnhoCsE4hAbc3SEym26+W2z/VQB0cQiA9Q==}
+
+  markdown-it-sup@1.0.0:
+    resolution: {integrity: sha512-E32m0nV9iyhRR7CrhnzL5msqic7rL1juWre6TQNxsnApg7Uf+F97JOKxUijg5YwXz86lZ0mqfOnutoryyNdntQ==}
 
   markdown-it@13.0.2:
     resolution: {integrity: sha512-FtwnEuuK+2yVU7goGn/MJ0WBZMM9ZPgU9spqlFs7/A/pDIUNSOQZhUgOqYCficIuR2QaFnrt8LHqBWsbTAoI5w==}
@@ -5668,6 +5739,11 @@ snapshots:
       lodash: 4.18.1
       markdown-it: 13.0.2
 
+  '@aomao/plugin-alignment@2.10.0(@aomao/engine@2.10.26)':
+    dependencies:
+      '@aomao/engine': 2.10.26
+      '@babel/runtime': 7.29.2
+
   '@aomao/plugin-bold@2.10.0(@aomao/engine@2.10.26)':
     dependencies:
       '@aomao/engine': 2.10.26
@@ -5726,11 +5802,22 @@ snapshots:
       ant-design-vue: 2.2.8(@vue/compiler-sfc@3.5.32)(vue@3.5.32(typescript@5.3.3))
       vue: 3.5.32(typescript@5.3.3)
 
+  '@aomao/plugin-mark@2.10.0(@aomao/engine@2.10.26)':
+    dependencies:
+      '@aomao/engine': 2.10.26
+      '@babel/runtime': 7.29.2
+      markdown-it-mark: 3.0.1
+
   '@aomao/plugin-mention@2.10.3(@aomao/engine@2.10.26)':
     dependencies:
       '@aomao/engine': 2.10.26
       '@babel/runtime': 7.29.2
       keymaster: 1.6.2
+
+  '@aomao/plugin-paintformat@2.10.0(@aomao/engine@2.10.26)':
+    dependencies:
+      '@aomao/engine': 2.10.26
+      '@babel/runtime': 7.29.2
 
   '@aomao/plugin-quote@2.10.0(@aomao/engine@2.10.26)':
     dependencies:
@@ -5741,6 +5828,28 @@ snapshots:
     dependencies:
       '@aomao/engine': 2.10.26
       '@babel/runtime': 7.29.2
+
+  '@aomao/plugin-removeformat@2.10.0(@aomao/engine@2.10.26)':
+    dependencies:
+      '@aomao/engine': 2.10.26
+      '@babel/runtime': 7.29.2
+
+  '@aomao/plugin-strikethrough@2.10.0(@aomao/engine@2.10.26)':
+    dependencies:
+      '@aomao/engine': 2.10.26
+      '@babel/runtime': 7.29.2
+
+  '@aomao/plugin-sub@2.10.1(@aomao/engine@2.10.26)':
+    dependencies:
+      '@aomao/engine': 2.10.26
+      '@babel/runtime': 7.29.2
+      markdown-it-sub: 1.0.0
+
+  '@aomao/plugin-sup@2.10.1(@aomao/engine@2.10.26)':
+    dependencies:
+      '@aomao/engine': 2.10.26
+      '@babel/runtime': 7.29.2
+      markdown-it-sup: 1.0.0
 
   '@aomao/plugin-table@2.10.8(@aomao/engine@2.10.26)':
     dependencies:
@@ -9094,6 +9203,8 @@ snapshots:
     optionalDependencies:
       webpack: 5.106.1(webpack-cli@5.1.4)
 
+  htmldiff-js@1.0.5: {}
+
   htmlparser2@6.1.0:
     dependencies:
       domelementtype: 2.3.0
@@ -9508,6 +9619,12 @@ snapshots:
   make-dir@3.1.0:
     dependencies:
       semver: 6.3.1
+
+  markdown-it-mark@3.0.1: {}
+
+  markdown-it-sub@1.0.0: {}
+
+  markdown-it-sup@1.0.0: {}
 
   markdown-it@13.0.2:
     dependencies:
