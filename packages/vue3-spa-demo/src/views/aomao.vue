@@ -291,7 +291,6 @@ onUnmounted(() => {
 .editor-wrapper {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
-  max-width: 800px;
   overflow: auto;
 }
 .editor-toolbar {

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
@@ -14,7 +14,10 @@
       }
 
       body {
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
         padding: 20px;
         line-height: 1.6;
         color: #333;
@@ -129,6 +132,7 @@
         vertical-align: middle;
       }
     </style>
+    <script src="https://unpkg.com/sculp-js"></script>
   </head>
   <body>
     <div class="container">
@@ -339,17 +343,23 @@
         console.time('Diff Performance');
         const oldVDOM = parseHTMLToVDOM(oldHtml);
         const newVDOM = parseHTMLToVDOM(newHtml);
+        console.log('oldVDOM', oldVDOM);
+        console.log('newVDOM', newVDOM);
         const visualDOM = mergeToVisualDOM(oldVDOM, newVDOM);
+        console.log('visualDOM', visualDOM.firstChild);
         console.timeEnd('Diff Performance');
 
         const fragment = document.createDocumentFragment();
         while (visualDOM.firstChild) {
           fragment.appendChild(visualDOM.firstChild);
+          console.log('visualDOM.firstChild', visualDOM.firstChild);
         }
 
         const container = document.getElementById(containerId);
         container.innerHTML = '';
         container.appendChild(fragment);
+        // console.log('window.sculpJs.copyText', window.sculpJs.copyText, 'fragment.innerHTML', fragment.innerHTML);
+        window.sculpJs.copyText(container.innerHTML); // 复制结果到剪贴板，方便调试
       }
 
       // ================= 7. 极端场景测试用例 =================
@@ -511,6 +521,7 @@ Hello brave <b>world</b>
         // renderDiff(oldHTML, newHTML, 'app');
         renderDiff(oldHtml, newHtml, 'app');
       }, 500); // 稍微延迟以展示 Loading 效果
+      window.renderDiff = renderDiff; // 暴露给全局，方便调试
     </script>
   </body>
 </html>

@@ -61,8 +61,7 @@ const diffResult = computed(() => {
 
 <style scoped>
 .html-diff-demo {
-  max-width: 1200px;
-  margin: 0 auto;
+  /* margin: 0 auto; */
   padding: 24px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
